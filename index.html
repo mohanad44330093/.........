@@ -1,0 +1,707 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}</style>
+<script>
+if(!window.claude){window.claude={use:async function(n){if(n!=='downloads')return null;return{save:async function(o){var b=o.data instanceof Blob?o.data:new Blob([o.data],{type:'text/plain'});var u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=o.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000);}}}}}
+</script></head><body>
+<title>مولّد خطط التمارين</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: editor column on the start side, sticky page-preview grid beside it, sticky export bar at the bottom.
+   Palette is lifted from the PDF template itself: deep navy, signal blue, coach gold. */
+:root {
+  --bg: #EEF3F9;
+  --panel: #FFFFFF;
+  --panel2: #F3F6FB;
+  --fg: #0A1628;
+  --muted: #536480;
+  --line: #D3DCE8;
+  --accent: #0B6FD8;
+  --accent-ink: #FFFFFF;
+  --gold: #8F5C00;
+  --danger: #B3261E;
+  --ok: #157347;
+  --shadow: 0 1px 2px rgba(10, 22, 40, .06), 0 8px 24px rgba(10, 22, 40, .06);
+  --font: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #070D18; --panel: #0C192C; --panel2: #0F1F34; --fg: #F6F9FD; --muted: #9DB4D0;
+    --line: #204C78; --accent: #0099FF; --accent-ink: #04101F; --gold: #F5BE4C;
+    --danger: #FF8A80; --ok: #5FD39A; --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #070D18; --panel: #0C192C; --panel2: #0F1F34; --fg: #F6F9FD; --muted: #9DB4D0;
+  --line: #204C78; --accent: #0099FF; --accent-ink: #04101F; --gold: #F5BE4C;
+  --danger: #FF8A80; --ok: #5FD39A; --shadow: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 1180px; margin: 0 auto; padding-block: 20px 0; }
+h1 { font-size: 26px; line-height: 1.25; margin: 0; font-weight: 800; text-wrap: balance; }
+h2 { font-size: 17px; margin: 0; font-weight: 700; }
+.lead { color: var(--muted); margin: 6px 0 0; max-width: 60ch; }
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (min-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr) 470px; } .preview { position: sticky; top: 16px; } }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+.card > .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.sub { color: var(--muted); font-size: 13px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .fields { grid-template-columns: minmax(0, 1fr); } }
+.fields .wide { grid-column: 1 / -1; }
+label.f { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); font-weight: 600; min-width: 0; }
+input[type=text], textarea {
+  width: 100%; background: var(--panel2); color: var(--fg); border: 1px solid var(--line); border-radius: 9px;
+  padding: 9px 11px; font: inherit; font-size: 15px; min-width: 0;
+}
+textarea { resize: vertical; min-height: 74px; line-height: 1.6; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--panel2); color: var(--fg); border-radius: 9px; padding: 8px 14px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; padding: 11px 22px; font-size: 16px; }
+.btn.primary:disabled { opacity: .6; cursor: progress; }
+.btn.ghost { background: transparent; }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+.btn.danger { color: var(--danger); }
+.ico { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 8px; flex: none; }
+.ico svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.banner { border: 1px dashed var(--accent); background: var(--panel2); border-radius: 12px; padding: 11px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.banner p { margin: 0; font-size: 14px; }
+.day { border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.day.rest { border-style: dashed; }
+.dayhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dayname { font-weight: 800; font-size: 16px; min-width: 88px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 6px 13px; font-weight: 700; font-size: 13px; }
+.seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+.dayhead .grow { flex: 1 1 200px; min-width: 0; }
+.dayacts { display: flex; gap: 6px; margin-inline-start: auto; }
+.rows { display: flex; flex-direction: column; gap: 7px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 118px 34px; gap: 7px; align-items: center; }
+.colhead { display: grid; grid-template-columns: minmax(0, 1fr) 118px 34px; gap: 7px; font-size: 12px; color: var(--muted); font-weight: 600; padding-inline: 2px; }
+.reps { direction: ltr; text-align: left; }
+.restnote { margin: 0; color: var(--muted); font-size: 13px; }
+.dayfoot { display: flex; gap: 8px; flex-wrap: wrap; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
+@media (max-width: 460px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.chk { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 14px; }
+.chk input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+details > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::after { content: '+'; font-size: 20px; color: var(--accent); line-height: 1; }
+details[open] > summary::after { content: '−'; }
+details .body { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+pre.ex { margin: 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; font: 13px/1.7 var(--font); direction: rtl; white-space: pre-wrap; color: var(--muted); }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.thumb { border: 0; background: none; padding: 0; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
+.thumb canvas { width: 100%; height: auto; aspect-ratio: 9 / 16; border-radius: 8px; border: 1px solid var(--line); background: #070D18; display: block; }
+.thumb:hover canvas { border-color: var(--accent); }
+.bar {
+  position: sticky; bottom: 0; z-index: 5; margin-top: 18px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px 14px 0 0; border-bottom: 0;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; box-shadow: 0 -8px 24px rgba(10, 22, 40, .08);
+}
+.bar .name { flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.bar .name input { direction: ltr; text-align: left; }
+.bar .ext { color: var(--muted); font-weight: 700; direction: ltr; }
+.status { flex: 1 1 100%; font-size: 13px; color: var(--muted); margin: 0; }
+.status:empty { display: none; }
+.status.err { color: var(--danger); }
+.status.ok { color: var(--ok); }
+.lb { position: fixed; inset: 0; z-index: 50; background: rgba(4, 8, 16, .86); display: flex; align-items: center; justify-content: center; padding: 18px; flex-direction: column; gap: 10px; }
+.lb canvas { max-width: 100%; max-height: calc(100% - 52px); border-radius: 10px; box-shadow: 0 10px 50px rgba(0, 0, 0, .6); }
+.lb[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) { .btn, .thumb canvas { transition: border-color .15s; } }
+</style>
+
+<div class="app" dir="rtl" lang="ar">
+  <header class="top">
+    <div>
+      <h1>مولّد خطط التمارين</h1>
+      <p class="lead">اكتب النظام بأيامه وراحته وملاحظاته، وخد PDF بنفس تصميم الـ template.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <main class="col" id="editor" aria-label="بيانات النظام"></main>
+
+    <aside class="col preview" aria-label="معاينة الصفحات">
+      <section class="card">
+        <div class="head"><h2>معاينة الـ PDF</h2><span class="sub" id="pgcount"></span></div>
+        <div class="thumbs" id="thumbs"></div>
+        <p class="sub" style="margin:10px 0 0">اضغط على أي صفحة لتكبيرها.</p>
+      </section>
+    </aside>
+  </div>
+
+  <div class="bar">
+    <div class="name">
+      <input type="text" id="filename" aria-label="اسم الملف" placeholder="اسم الملف" autocomplete="off">
+      <span class="ext">.pdf</span>
+    </div>
+    <button class="btn primary" id="export" type="button">تنزيل PDF</button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<div class="lb" id="lb" hidden>
+  <button class="btn" type="button" id="lbclose">إغلاق</button>
+  <canvas id="lbcanvas"></canvas>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants taken from the template (1 unit = 1pt, page = 540 x 960) ---------- */
+const PW = 540, PH = 960;
+const FONT = "Cairo, 'Segoe UI', Tahoma, Arial, sans-serif";
+const K = { bg: '#070D18', bar1: '#0F2742', bar2: '#0A182B', card: '#0C192C', card2: '#0F1F34', line: '#204C78',
+  blue: '#0099FF', blue2: '#105EB5', white: '#F6F9FD', mute: '#B5C6DB', gold: '#F5BE4C', sub: '#D6E6FA', cov: '#9DB4D0', warn: '#1A2637' };
+const ORD = ['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن','التاسع','العاشر','الحادي عشر','الثاني عشر','الثالث عشر','الرابع عشر'];
+const E = 12700;
+const BARS1 = [[6446519,1737360],[5394959,1097280],[4343400,1737360],[3291839,1097280],[2240279,1737360],[1188719,1097280],[137159,1737360],[-914400,1097280]];
+const BARS2 = [[7132320,640080],[6309359,91440],[5486400,1188720],[4663440,640080],[3840480,91440],[3017520,1188720],[2194560,640080],[1371600,91440],[548640,1188720],[-274319,640080],[-1097280,91440]];
+const DEFAULT_GUIDE = [
+  'سخّن من 5 إلى 10 دقائق قبل بدء التمرين.',
+  'اشرب الماء بانتظام قبل التمرين وأثناءه وبعده.',
+  'ركّز على الأداء الصحيح قبل زيادة الأوزان.',
+  'خذ راحة مناسبة بين المجموعات حسب تعليمات الكابتن.',
+  'لا تغيّر التمارين أو المجموعات دون مراجعة الكابتن.',
+  'احرص على النوم والتعافي بين أيام التمرين.',
+  'أوقف التمرين وأبلغ الكابتن عند الشعور بألم غير معتاد.'
+].join('\n');
+const REST_NOTE = 'الراحة جزء أساسي من الخطة: نوم كافٍ، مياه بانتظام، وتغذية سليمة للتعافي.';
+
+/* ---------- state ---------- */
+const KEY = 'workout-plan-draft-v1';
+let uidN = 0; const uid = () => 'x' + (++uidN) + Math.random().toString(36).slice(2, 5);
+const row = (n = '', r = '') => ({ id: uid(), n, r });
+const day = (o = {}) => Object.assign({ id: uid(), rest: false, muscle: '', rows: [row()], notes: '' }, o);
+
+function sample() {
+  return {
+    sample: true, file: 'workout-plan', captainEn: 'C.Coach', captainAr: 'كابتن مدرب', client: '', goal: '',
+    opts: { summary: true, guidelines: true, goal: true, progress: true }, guide: DEFAULT_GUIDE,
+    days: [
+      day({ muscle: 'Push', rows: [row('جهاز دفع صدر', '4 × 15'), row('دمبل عالي', '3 × 10-15'), row('فراشة', '3 × 10-15'), row('رفرفة جانبي', '4 × 15'), row('ترايسبس كابل', '4 × 15')], notes: 'كل التمارين من 10 إلى 15 تكرار حسب الوزن.' }),
+      day({ muscle: 'Pull', rows: [row('سحب عالي واسع', '4 × 15'), row('سحب أرضي', '3 × 10-15'), row('قطنية جهاز', '3 × 10-15'), row('بايسبس دمبل', '3 × 10-15')], notes: '' }),
+      day({ rest: true, rows: [], notes: '' }),
+      day({ muscle: 'Leg', rows: [row('رجل أمامي جهاز', '4 × 10-15'), row('رجل خلفي جهاز', '4 × 10-15'), row('مكبس', '4 × 10-15'), row('سمانة', '4 × 15'), row('مشاية', '20 دقيقة')], notes: 'كل تمارين الرجل 4 مجاميع حسب الوزن.' })
+    ]
+  };
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (s && Array.isArray(s.days)) { s.days.forEach(d => { d.id = d.id || uid(); (d.rows || []).forEach(r => r.id = r.id || uid()); }); return s; }
+  } catch (e) {}
+  return null;
+}
+let S = load() || sample();
+S.opts = Object.assign({ summary: true, guidelines: true, goal: true, progress: true }, S.opts || {});
+if (!S.guide) S.guide = DEFAULT_GUIDE;
+let saveT = 0;
+function persist() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }, 400); }
+
+/* ---------- text helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const AR = /[֐-ࣿ]/;
+const nd = s => s.replace(/[٠-٩]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x660 + 48)).replace(/[۰-۹]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x6F0 + 48));
+function normReps(s) {
+  s = nd(String(s)).trim();
+  s = s.replace(/من\s*(\d+)\s*(?:الى|الي|إلى)\s*(\d+)/g, '$1-$2');
+  s = s.replace(/(\d)\s*[x*X✕×]\s*(\d)/g, '$1 × $2');
+  s = s.replace(/(\d)\s*[\/–—-]\s*(\d)/g, '$1-$2');
+  return s.replace(/\s+/g, ' ');
+}
+
+/* ---------- pasted-text parser ---------- */
+const NOTE_RE = /^(?:ملاحظ[اة]ت?|note[s]?)\s*[:：]\s*(.*)$/i;
+const REPS_A = /(\d+\s*[x*X×✕]\s*\d+(?:\s*[-–\/]\s*\d+)?)\s*$/;
+const REPS_B = /(\d+(?:\s*[-–\/]\s*\d+)?\s*(?:دقيقة|دقيقه|دقائق|دقايق|min))\s*$/i;
+function parseRow(line) {
+  let l = nd(line).replace(/^[\s\-•*·\d]+[.)\-]\s+/, '').trim();
+  l = l.replace(/من\s*(\d+)\s*(?:الى|الي|إلى)\s*(\d+)/g, '$1-$2');
+  if (/[|\t]/.test(l)) { const p = l.split(/[|\t]/); return { n: p[0].trim(), r: normReps(p.slice(1).join(' ')) }; }
+  let m = l.match(REPS_A) || l.match(REPS_B);
+  if (m) { const n = l.slice(0, m.index).replace(/[\s:：\-–]+$/, '').trim(); if (n) return { n, r: normReps(m[1]) }; }
+  return { n: l, r: '' };
+}
+function parsePlan(text) {
+  const blocks = String(text).replace(/\r/g, '').split(/\n\s*\n/).map(b => b.split('\n').map(l => l.trim()).filter(Boolean)).filter(b => b.length);
+  const out = [];
+  for (const b of blocks) {
+    let title = '', i = 0;
+    const m = b[0].match(/^(?:اليوم|يوم|day)\s*[\d٠-٩]*\s*[:：\-–]?\s*(.*)$/i);
+    const isRowLike = /[|\t]/.test(b[0]) || REPS_A.test(nd(b[0])) || REPS_B.test(nd(b[0])) || NOTE_RE.test(b[0]);
+    if (m) { title = m[1].trim(); i = 1; } else if (!isRowLike) { title = b[0]; i = 1; }
+    const restDay = /^(?:يوم\s*)?(?:راح[هة]|rest|off)$/i.test(title.trim());
+    const d = day({ rows: [], muscle: restDay ? '' : title, rest: restDay });
+    const notes = [];
+    for (; i < b.length; i++) {
+      const nm = b[i].match(NOTE_RE);
+      if (nm) { notes.push(nm[1]); continue; }
+      if (restDay) { notes.push(b[i]); continue; }
+      const r = parseRow(b[i]); if (r.n) d.rows.push(row(r.n, r.r));
+    }
+    d.notes = notes.join('\n');
+    if (!d.rest && !d.rows.length) d.rows = [row()];
+    out.push(d);
+  }
+  return out;
+}
+
+/* ---------- canvas drawing kit ---------- */
+const mctx = document.createElement('canvas').getContext('2d');
+const autoDir = s => AR.test(s) ? 'rtl' : 'ltr';
+function wrap(ctx, text, maxW) {
+  const out = [];
+  for (const para of String(text).split('\n')) {
+    const words = para.split(/\s+/).filter(Boolean); let line = '';
+    if (!words.length) { out.push(''); continue; }
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (!line || ctx.measureText(t).width <= maxW) line = t; else { out.push(line); line = w; }
+    }
+    out.push(line);
+  }
+  return out;
+}
+function rrect(ctx, x, y, w, h, r, fill, stroke, lw = 1) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+const rr = (ctx, x, y, w, h, fill, stroke) => rrect(ctx, x, y, w, h, 0.16667 * Math.min(w, h), fill, stroke);
+function rect(ctx, x, y, w, h, fill) { ctx.fillStyle = fill; ctx.fillRect(x, y, w, h); }
+function dot(ctx, cx, cy, r, fill) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); }
+/* text inside a box; template insets 8.64 / 2.88 / 8.64 / 2.16 */
+function T(ctx, str, x, y, w, h, o = {}) {
+  str = String(str == null ? '' : str); if (!str) return;
+  const { size = 12, weight = 400, color = K.white, align = 'right', lh = 1.3, inset = true, minSize = 9 } = o;
+  const dir = o.dir || autoDir(str);
+  const px = x + (inset ? 8.64 : 0), pw = w - (inset ? 17.28 : 0), py = y + (inset ? 2.88 : 0), ph = h - (inset ? 5.04 : 0);
+  let s = size, lines;
+  ctx.direction = dir;
+  for (;;) {
+    ctx.font = `${weight} ${s}px ${FONT}`;
+    lines = wrap(ctx, str, pw);
+    if (lines.length * s * lh <= ph + 0.5 || s <= minSize || o.fit === false) break;
+    s -= 0.5;
+  }
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  const ax = align === 'right' ? px + pw : align === 'center' ? px + pw / 2 : px;
+  const total = lines.length * s * lh; let cy = py + ph / 2 - total / 2 + s * lh / 2;
+  for (const l of lines) { ctx.fillText(l, ax, cy + s * 0.04); cy += s * lh; }
+}
+function base(ctx, title, subtitle, no, bars = true) {
+  rect(ctx, 0, 0, PW, PH, K.bg);
+  if (bars) {
+    BARS1.forEach(([x, y]) => rect(ctx, x / E, y / E, 41148 / E, 9875520 / E, K.bar1));
+    BARS2.forEach(([x, y]) => rect(ctx, x / E, y / E, 118872 / E, 11338560 / E, K.bar2));
+  }
+  T(ctx, title, 30.24, 23.04, 478.8, 50.4, { size: 24, weight: 700 });
+  rect(ctx, 363.6, 77.76, 140.4, 3.24, K.blue);
+  if (subtitle) T(ctx, subtitle, 30.24, 84.24, 478.8, 32.4, { size: 11, color: K.mute, weight: 400 });
+  rect(ctx, 28.8, 922.9, 482.4, 1.8, K.line);
+  T(ctx, 'TRAIN HARD • STAY STRONG  |  خطة التمارين', 30.24, 926.7, 410.4, 18, { size: 8, color: K.mute, align: 'left', dir: 'ltr', weight: 400 });
+  T(ctx, String(no).padStart(2, '0'), 453.6, 926.7, 50.4, 18, { size: 9, weight: 700, color: K.blue, align: 'right', dir: 'ltr' });
+}
+
+/* ---------- page planning ---------- */
+function notesHeight(notes) {
+  mctx.font = `400 11px ${FONT}`; mctx.direction = autoDir(notes);
+  const lines = wrap(mctx, notes, 406.8 - 17.28).length;
+  return Math.min(300, Math.max(111.6, 54 + lines * 11 * 1.5));
+}
+function planDay(d, i) {
+  const label = 'اليوم ' + (ORD[i] || (i + 1));
+  let rows = d.rest ? [{ n: 'يوم راحة كاملة', r: '—' }] : d.rows.filter(r => r.n.trim() || r.r.trim()).map(r => ({ n: r.n.trim(), r: normReps(r.r) }));
+  let notes = (d.notes || '').trim(); if (d.rest && !notes) notes = REST_NOTE;
+  const H = notes ? notesHeight(notes) : 0;
+  const maxRows = Math.max(4, Math.min(14, Math.floor((915 - 205.2 - (H ? H + 18 : 0) - 40) / 48) + 1));
+  const muscle = d.rest ? 'راحة' : d.muscle.trim();
+  const anyReps = rows.some(r => r.r);
+  const chunks = []; for (let k = 0; k < rows.length; k += maxRows) chunks.push(rows.slice(k, k + maxRows));
+  if (!chunks.length) chunks.push([]);
+  return chunks.map((c, ci) => ({ kind: 'day', title: label + (ci ? ' (تابع)' : ''), muscle, rows: c, anyReps, notes: ci === chunks.length - 1 ? notes : '', H, rest: d.rest }));
+}
+function planPages(S) {
+  const pages = [{ kind: 'cover' }];
+  S.days.forEach((d, i) => planDay(d, i).forEach(p => pages.push(p)));
+  if (S.opts.summary && S.days.length) pages.push({ kind: 'summary' });
+  if (S.opts.guidelines) pages.push({ kind: 'guidelines' });
+  if (S.opts.goal) pages.push({ kind: 'goal' });
+  if (S.opts.progress) pages.push({ kind: 'progress' });
+  pages.forEach((p, i) => p.no = i + 1);
+  return pages;
+}
+
+/* ---------- page renderers ---------- */
+function drawCover(ctx, S) {
+  rect(ctx, 0, 0, PW, PH, K.bg);
+  rrect(ctx, 10.87, 10.8, 516.7, 515.3, 85.9, K.card, K.line);
+  const hasClient = S.client.trim();
+  T(ctx, 'WORKOUT', 10.87, 160, 516.7, 66, { size: 54, weight: 800, color: K.blue, align: 'center', dir: 'ltr', lh: 1.1, inset: false, fit: false });
+  T(ctx, 'PLAN', 10.87, 231, 516.7, 66, { size: 54, weight: 800, color: K.white, align: 'center', dir: 'ltr', lh: 1.1, inset: false, fit: false });
+  T(ctx, 'نظام التمارين', 10.87, 309, 516.7, 36, { size: 24, weight: 700, align: 'center', inset: false });
+  T(ctx, 'اسم العميل: ' + (hasClient ? hasClient : '..................'), 60, 354, 420, 28, { size: 16, color: K.cov, align: 'center', inset: false });
+  if (S.captainEn.trim()) T(ctx, S.captainEn.trim(), 49.3, 537.7, 446.4, 42.7, { size: 31, weight: 800, align: 'center', dir: 'ltr' });
+  if (S.captainAr.trim()) T(ctx, S.captainAr.trim(), 55.4, 580.8, 432, 31.7, { size: 22, weight: 700, color: K.gold, align: 'center' });
+  rect(ctx, 56.8, 617.9, 428.4, 2.9, K.blue);
+  T(ctx, 'خطة تمارين أسبوعية', 53.2, 624.9, 432, 53.6, { size: 40, weight: 600 });
+  T(ctx, 'التزام • قوة • استمرارية', 53.2, 677.2, 432, 23.3, { size: 15, color: K.mute });
+  const cards = [{ en: 'WORKOUT', ar: 'خطة التمارين' }];
+  if (S.opts.guidelines) cards.push({ en: 'GUIDELINES', ar: 'التعليمات' });
+  if (S.opts.progress) cards.push({ en: 'PROGRESS', ar: 'متابعة التقدم' });
+  const cw = 106.56, gap = 69.6, total = cards.length * cw + (cards.length - 1) * gap, x0 = (PW - total) / 2;
+  cards.forEach((c, i) => {
+    const x = x0 + i * (cw + gap);
+    rr(ctx, x, 723.6, cw, 90, K.card, K.line);
+    T(ctx, c.en, x, 736, cw, 26, { size: 12, weight: 700, color: K.blue, align: 'center', dir: 'ltr', inset: false });
+    T(ctx, c.ar, x, 768, cw, 26, { size: 12, weight: 600, align: 'center', inset: false });
+  });
+  T(ctx, 'WORKOUT PLAN  |  MOBILE EDITION', 50.4, 856.8, 432, 39.6, { size: 9, weight: 700, color: K.mute, align: 'left', dir: 'ltr' });
+}
+function drawDay(ctx, p) {
+  base(ctx, p.title, p.muscle ? 'العضلة المستهدفة: ' + p.muscle : '', p.no);
+  rr(ctx, 44.64, 133.2, 450, 56.16, K.blue2, K.blue2);
+  T(ctx, 'التمارين', 64.8, 142.56, 406.8, 34.56, { size: 17, weight: 700 });
+  if (p.anyReps) T(ctx, 'مجموعات × تكرار', 64.8, 142.56, 189, 34.56, { size: 12, color: K.sub, align: 'left', dir: 'rtl' });
+  const n = p.rows.length; let cardH = 51.84, pitch = 63.36;
+  const bottom = 915 - (p.notes ? p.H + 18 : 0), avail = bottom - 205.2;
+  if (n) { const need = (n - 1) * pitch + cardH; if (need > avail) { const f = avail / need; pitch *= f; cardH *= f; } }
+  const fs = cardH >= 48 ? 15 : cardH >= 42 ? 14 : 13;
+  p.rows.forEach((r, i) => {
+    const y = 205.2 + i * pitch;
+    rr(ctx, 44.64, y, 435.6 + 14.4, cardH, K.card, K.line);
+    dot(ctx, 455.76, y + cardH / 2, 2.88, K.blue);
+    T(ctx, r.n, 170, y, 276.4, cardH, { size: fs, weight: 400, lh: 1.25 });
+    if (r.r) T(ctx, r.r, 64.8, y, 105, cardH, { size: fs, weight: 700, color: K.blue, align: 'left', dir: autoDir(r.r) === 'rtl' ? 'rtl' : 'ltr', lh: 1.2 });
+  });
+  if (p.notes) {
+    const y = 205.2 + (n ? (n - 1) * pitch + cardH : 0) + 18;
+    rr(ctx, 44.64, y, 450, p.H, K.card2, K.line);
+    T(ctx, 'ملاحظات الكابتن', 64.8, y + 7.2, 406.8, 28.8, { size: 14, weight: 700, color: K.gold });
+    T(ctx, p.notes, 64.8, y + 40, 406.8, p.H - 48, { size: 11, lh: 1.5, inset: false, fit: false });
+  }
+}
+function drawSummary(ctx, p, S) {
+  base(ctx, 'جدول التمارين الأسبوعي', 'ملخص سريع لأيام التمرين', p.no);
+  const n = S.days.length, pitch = Math.min(60.48, 770 / n), h = Math.min(46.8, pitch - 13.68);
+  S.days.forEach((d, i) => {
+    const y = 133.2 + i * pitch;
+    rr(ctx, 44.64, y, 450, h, K.card2, K.line);
+    const label = 'اليوم ' + (ORD[i] || (i + 1));
+    const m = d.rest ? 'راحة' : (d.muscle.trim() || '—');
+    T(ctx, 'العضلة: ' + m, 266.4, y, 201.6, h, { size: 12, weight: 700, color: K.blue });
+    T(ctx, label, 59.04, y, 194.4, h, { size: 12, weight: 700 });
+  });
+}
+function drawGuidelines(ctx, p, S) {
+  base(ctx, 'تعليمات مهمة', 'إرشادات لتطبيق الخطة بأمان', p.no);
+  const items = String(S.guide).split('\n').map(s => s.trim()).filter(Boolean).slice(0, 12);
+  const pitch = Math.min(61.92, 770 / Math.max(items.length, 1)), h = pitch * 0.767;
+  items.forEach((t, i) => {
+    const y = 133.2 + i * pitch;
+    rr(ctx, 44.64, y, 450, h, K.card2, K.line);
+    dot(ctx, 461.5 + 2.88, y + h / 2, 2.88, K.blue);
+    T(ctx, t, 59.04, y, 396, h, { size: 12, lh: 1.3 });
+  });
+}
+function drawGoal(ctx, p, S) {
+  base(ctx, 'هدف الخطة', 'طريقة الاستخدام والمتابعة', p.no);
+  const goal = S.goal.trim() || '..........................................';
+  const blocks = [['الهدف', goal], ['طريقة الاستخدام', 'اتبع تمارين كل يوم بالترتيب، وسجّل الأوزان وعدد التكرارات التي تناقشها مع الكابتن.'], ['المتابعة', 'تُراجع الخطة حسب التقدم والالتزام والراحة والأداء.']];
+  blocks.forEach(([t, b], i) => {
+    const y = 136.8 + i * 147.6;
+    rr(ctx, 44.64, y, 450, 118.8, K.card2, K.line);
+    T(ctx, t, 64.8, y + 8.64, 406.8, 30.24, { size: 17, weight: 700, color: K.blue });
+    T(ctx, b, 64.8, y + 43.2, 406.8, 61.2, { size: 12, lh: 1.4 });
+  });
+  rr(ctx, 44.64, 583.2, 450, 115.2, K.warn, K.gold);
+  T(ctx, 'القدرات تختلف من شخص لآخر. عند وجود إصابة أو حالة صحية، راجع مختصًا مؤهلًا.', 64.8, 597.6, 406.8, 79.2, { size: 12, lh: 1.4 });
+}
+function drawProgress(ctx, p) {
+  base(ctx, 'متابعة التقدم', 'سجّل الملاحظات لمراجعتها مع الكابتن', p.no);
+  ['الأول', 'الثاني', 'الثالث', 'الرابع'].forEach((w, i) => {
+    const y = 133.2 + i * 97.2;
+    rr(ctx, 44.64, y, 450, 75.6, K.card2, K.line);
+    T(ctx, 'الأسبوع ' + w, 288, y + 5.76, 180, 25.2, { size: 13, weight: 700, color: K.blue });
+    T(ctx, 'الوزن: ............', 64.8, y + 36, 403.2, 24.5, { size: 16 });
+  });
+  rr(ctx, 44.64, 558, 450, 100.8, K.blue2, K.blue2);
+  T(ctx, 'الهدف هو متابعة التقدم وتحديد التعديلات المناسبة، لا الحكم على نفسك.', 64.8, 572.4, 406.8, 72, { size: 13, weight: 700, align: 'center', lh: 1.4 });
+}
+function drawPage(ctx, p, S, scale) {
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.save();
+  ({ cover: () => drawCover(ctx, S), day: () => drawDay(ctx, p), summary: () => drawSummary(ctx, p, S), guidelines: () => drawGuidelines(ctx, p, S), goal: () => drawGoal(ctx, p, S), progress: () => drawProgress(ctx, p) })[p.kind]();
+  ctx.restore();
+}
+const PAGE_NAMES = { cover: 'الغلاف', summary: 'الجدول الأسبوعي', guidelines: 'التعليمات', goal: 'هدف الخطة', progress: 'متابعة التقدم' };
+
+/* ---------- preview ---------- */
+let pages = [];
+function renderPreview() {
+  pages = planPages(S);
+  $('pgcount').textContent = pages.length + ' صفحة';
+  const box = $('thumbs'); box.innerHTML = '';
+  pages.forEach((p, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'thumb';
+    b.setAttribute('aria-label', 'تكبير صفحة ' + p.no);
+    const c = document.createElement('canvas'); const sc = 0.8; c.width = PW * sc; c.height = PH * sc;
+    drawPage(c.getContext('2d'), p, S, sc);
+    const cap = document.createElement('span'); cap.textContent = p.kind === 'day' ? p.title : PAGE_NAMES[p.kind];
+    b.append(c, cap); b.addEventListener('click', () => openLightbox(i)); box.appendChild(b);
+  });
+}
+let prevT = 0;
+function schedule() { clearTimeout(prevT); prevT = setTimeout(renderPreview, 220); persist(); }
+function openLightbox(i) {
+  const c = $('lbcanvas'); const sc = Math.min(1.6, (window.innerHeight - 90) / PH);
+  c.width = PW * sc; c.height = PH * sc; drawPage(c.getContext('2d'), pages[i], S, sc);
+  $('lb').hidden = false; $('lbclose').focus();
+}
+$('lbclose').addEventListener('click', () => { $('lb').hidden = true; });
+$('lb').addEventListener('click', e => { if (e.target === $('lb')) $('lb').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('lb').hidden = true; });
+
+/* ---------- editor ---------- */
+const svg = {
+  up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg>'
+};
+function dayHtml(d, i) {
+  const name = 'اليوم ' + (ORD[i] || (i + 1));
+  const rows = d.rest
+    ? '<p class="restnote">صفحة راحة كاملة. اكتب ملاحظة لو عايز، أو سيبها وهتظهر الملاحظة الافتراضية.</p>'
+    : `<div class="rows"><div class="colhead"><span>اسم التمرين</span><span>مجموعات × تكرار</span><span></span></div>${d.rows.map(r => `
+        <div class="row">
+          <input type="text" id="${d.id}-${r.id}-n" data-day="${d.id}" data-row="${r.id}" data-k="n" value="${esc(r.n)}" placeholder="مثال: سحب عالي واسع" autocomplete="off" aria-label="اسم التمرين">
+          <input type="text" class="reps" id="${d.id}-${r.id}-r" data-day="${d.id}" data-row="${r.id}" data-k="r" value="${esc(r.r)}" placeholder="3 × 12" autocomplete="off" aria-label="المجموعات والتكرار">
+          <button type="button" class="btn ghost ico danger" data-act="del-row" data-day="${d.id}" data-row="${r.id}" aria-label="حذف التمرين">${svg.x}</button>
+        </div>`).join('')}</div>
+      <div class="dayfoot"><button type="button" class="btn small" data-act="add-row" data-day="${d.id}">+ تمرين</button></div>`;
+  return `<section class="day ${d.rest ? 'rest' : ''}" aria-label="${name}">
+    <div class="dayhead">
+      <span class="dayname">${name}</span>
+      <div class="seg" role="group" aria-label="نوع اليوم">
+        <button type="button" data-act="set-train" data-day="${d.id}" aria-pressed="${!d.rest}">تمرين</button>
+        <button type="button" data-act="set-rest" data-day="${d.id}" aria-pressed="${d.rest}">راحة</button>
+      </div>
+      ${d.rest ? '<span class="grow"></span>' : `<input type="text" class="grow" id="${d.id}-muscle" data-day="${d.id}" data-k="muscle" value="${esc(d.muscle)}" placeholder="العضلة المستهدفة (Push, Upper, صدر وتراي…)" autocomplete="off" aria-label="العضلة المستهدفة">`}
+      <div class="dayacts">
+        <button type="button" class="btn ico" data-act="up" data-day="${d.id}" aria-label="نقل لأعلى" ${i === 0 ? 'disabled' : ''}>${svg.up}</button>
+        <button type="button" class="btn ico" data-act="down" data-day="${d.id}" aria-label="نقل لأسفل" ${i === S.days.length - 1 ? 'disabled' : ''}>${svg.down}</button>
+        <button type="button" class="btn ico danger" data-act="del-day" data-day="${d.id}" aria-label="حذف اليوم">${svg.trash}</button>
+      </div>
+    </div>
+    ${rows}
+    <label class="f">ملاحظات الكابتن (اختياري)
+      <textarea id="${d.id}-notes" data-day="${d.id}" data-k="notes" placeholder="الراحة بين المجموعات، الأوزان، أي تعليمات…">${esc(d.notes)}</textarea>
+    </label>
+  </section>`;
+}
+function renderEditor() {
+  const ex = `Push
+جهاز دفع صدر | 4 × 15
+دمبل عالي | 3 × 10-15
+فراشة 3*12
+ملاحظات: الراحة دقيقة بين المجموعات
+
+راحة
+
+Leg
+رجل أمامي جهاز 4×12
+مشاية 20 دقيقة`;
+  $('editor').innerHTML = `
+    ${S.sample ? `<div class="banner" role="note"><p>ده نظام تجريبي علشان تشوف الشكل. امسحه واكتب نظامك.</p><button type="button" class="btn small" data-act="clear">مسح الكل وابدأ نظام جديد</button></div>` : ''}
+    <section class="card">
+      <div class="head"><h2>بيانات الغلاف</h2></div>
+      <div class="fields">
+        <label class="f">اسم الكابتن بالإنجليزي<input type="text" id="captainEn" data-top="captainEn" value="${esc(S.captainEn)}" placeholder="C.Mahmoud" autocomplete="off" style="direction:ltr;text-align:left"></label>
+        <label class="f">اسم الكابتن بالعربي<input type="text" id="captainAr" data-top="captainAr" value="${esc(S.captainAr)}" placeholder="كابتن محمود" autocomplete="off"></label>
+        <label class="f">اسم العميل (اختياري)<input type="text" id="client" data-top="client" value="${esc(S.client)}" placeholder="سيبه فاضي لو مش عايز اسم" autocomplete="off"></label>
+        <label class="f">هدف العميل (اختياري)<input type="text" id="goal" data-top="goal" value="${esc(S.goal)}" placeholder="مثال: زيادة كتلة عضلية" autocomplete="off"></label>
+      </div>
+    </section>
+    <section class="card">
+      <div class="head"><h2>أيام التمرين</h2><span class="sub">${S.days.length} يوم</span></div>
+      <div class="col" id="days">${S.days.map(dayHtml).join('') || '<p class="sub">لسه مفيش أيام. ضيف يوم تمرين أو يوم راحة.</p>'}</div>
+      <div class="dayfoot" style="margin-top:12px">
+        <button type="button" class="btn" data-act="add-day" ${S.days.length >= 14 ? 'disabled' : ''}>+ يوم تمرين</button>
+        <button type="button" class="btn" data-act="add-rest" ${S.days.length >= 14 ? 'disabled' : ''}>+ يوم راحة</button>
+      </div>
+    </section>
+    <section class="card">
+      <details>
+        <summary>لصق النظام كنص وتحويله لأيام</summary>
+        <div class="body">
+          <p class="sub" style="margin:0">افصل بين الأيام بسطر فاضي. أول سطر في كل يوم هو اسم العضلة، أو اكتب «راحة». التمرين وعدده في نفس السطر، مثل <b>سحب عالي 4×15</b> أو <b>سحب عالي | 4 × 15</b>. السطر اللي يبدأ بـ «ملاحظات:» يروح لملاحظات الكابتن.</p>
+          <pre class="ex">${esc(ex)}</pre>
+          <textarea id="importText" placeholder="الصق نظامك هنا" style="min-height:140px"></textarea>
+          <div class="dayfoot">
+            <button type="button" class="btn" data-act="import-replace">استبدال الأيام الحالية</button>
+            <button type="button" class="btn" data-act="import-add">إضافة بعد الأيام الحالية</button>
+          </div>
+        </div>
+      </details>
+    </section>
+    <section class="card">
+      <div class="head"><h2>الصفحات المرفقة</h2></div>
+      <div class="opts">
+        <label class="chk"><input type="checkbox" id="o-summary" data-opt="summary" ${S.opts.summary ? 'checked' : ''}>جدول أسبوعي</label>
+        <label class="chk"><input type="checkbox" id="o-guidelines" data-opt="guidelines" ${S.opts.guidelines ? 'checked' : ''}>تعليمات مهمة</label>
+        <label class="chk"><input type="checkbox" id="o-goal" data-opt="goal" ${S.opts.goal ? 'checked' : ''}>هدف الخطة</label>
+        <label class="chk"><input type="checkbox" id="o-progress" data-opt="progress" ${S.opts.progress ? 'checked' : ''}>متابعة التقدم</label>
+      </div>
+      <details style="margin-top:14px">
+        <summary>تعديل نص التعليمات</summary>
+        <div class="body"><textarea id="guide" data-top="guide" style="min-height:170px" aria-label="نص التعليمات">${esc(S.guide)}</textarea>
+        <p class="sub" style="margin:0">كل سطر تعليمة (حتى 12).</p></div>
+      </details>
+    </section>`;
+}
+function touched() { if (S.sample) { S.sample = false; const b = document.querySelector('.banner'); if (b) b.remove(); } }
+const findDay = id => S.days.find(d => d.id === id);
+function focusId(id) { const el = document.getElementById(id); if (el) el.focus(); }
+
+$('editor').addEventListener('input', e => {
+  const t = e.target; touched();
+  if (t.dataset.top) S[t.dataset.top] = t.value;
+  else if (t.dataset.opt) S.opts[t.dataset.opt] = t.checked;
+  else if (t.dataset.day) {
+    const d = findDay(t.dataset.day); if (!d) return;
+    if (t.dataset.row) { const r = d.rows.find(x => x.id === t.dataset.row); if (r) r[t.dataset.k] = t.value; } else d[t.dataset.k] = t.value;
+  }
+  schedule();
+});
+$('editor').addEventListener('keydown', e => {
+  const t = e.target; if (e.key !== 'Enter' || !t.dataset || !t.dataset.row) return;
+  e.preventDefault(); const d = findDay(t.dataset.day); if (!d) return;
+  if (t.dataset.k === 'n') return focusId(`${d.id}-${t.dataset.row}-r`);
+  const idx = d.rows.findIndex(r => r.id === t.dataset.row);
+  if (idx === d.rows.length - 1) { const r = row(); d.rows.push(r); renderEditor(); schedule(); focusId(`${d.id}-${r.id}-n`); }
+  else focusId(`${d.id}-${d.rows[idx + 1].id}-n`);
+});
+$('editor').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, d = b.dataset.day ? findDay(b.dataset.day) : null;
+  touched();
+  const redraw = () => { renderEditor(); schedule(); };
+  if (a === 'add-day') { S.days.push(day()); redraw(); const nd_ = S.days[S.days.length - 1]; focusId(nd_.id + '-muscle'); return; }
+  if (a === 'add-rest') { S.days.push(day({ rest: true, rows: [] })); return redraw(); }
+  if (a === 'clear') { S = { sample: false, file: S.file, captainEn: S.captainEn, captainAr: S.captainAr, client: '', goal: '', opts: S.opts, guide: S.guide, days: [day()] }; redraw(); return setStatus('', ''); }
+  if (a === 'import-replace' || a === 'import-add') {
+    const parsed = parsePlan($('importText').value);
+    if (!parsed.length) return setStatus('مفيش أيام اتقرت من النص. اتأكد إنك فاصل بين الأيام بسطر فاضي.', 'err');
+    S.days = (a === 'import-add' ? S.days.filter(x => x.rest || x.rows.some(r => r.n.trim())) : []).concat(parsed).slice(0, 14);
+    redraw(); return setStatus('اتضاف ' + parsed.length + ' يوم من النص.', 'ok');
+  }
+  if (!d) return;
+  const i = S.days.indexOf(d);
+  if (a === 'del-day') S.days.splice(i, 1);
+  else if (a === 'up' && i > 0) S.days.splice(i - 1, 0, S.days.splice(i, 1)[0]);
+  else if (a === 'down' && i < S.days.length - 1) S.days.splice(i + 1, 0, S.days.splice(i, 1)[0]);
+  else if (a === 'set-rest') { d.rest = true; }
+  else if (a === 'set-train') { d.rest = false; if (!d.rows.length) d.rows = [row()]; }
+  else if (a === 'add-row') { const r = row(); d.rows.push(r); redraw(); return focusId(`${d.id}-${r.id}-n`); }
+  else if (a === 'del-row') { d.rows = d.rows.filter(r => r.id !== b.dataset.row); if (!d.rows.length) d.rows = [row()]; }
+  redraw();
+});
+
+/* ---------- PDF export (own writer: one JPEG per page) ---------- */
+async function loadFonts() {
+  try {
+    await Promise.all(['400', '600', '700', '800'].flatMap(w => [document.fonts.load(`${w} 16px Cairo`, 'Abc'), document.fonts.load(`${w} 16px Cairo`, 'ابتثجح')]));
+  } catch (e) {}
+}
+function toJpeg(canvas) {
+  return new Promise((res, rej) => canvas.toBlob(b => b ? b.arrayBuffer().then(ab => res(new Uint8Array(ab))) : rej(new Error('jpeg')), 'image/jpeg', 0.93));
+}
+function buildPdf(jpegs, w, h) {
+  const enc = new TextEncoder(), parts = [], offs = []; let pos = 0;
+  const put = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); pos += b.length; };
+  const n = jpegs.length;
+  put('%PDF-1.4\n'); put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
+  const obj = (id, body) => { offs[id] = pos; put(id + ' 0 obj\n'); put(body); put('\nendobj\n'); };
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Count ${n} /Kids [${jpegs.map((_, i) => (3 + i * 3) + ' 0 R').join(' ')}] >>`);
+  jpegs.forEach((j, i) => {
+    const pid = 3 + i * 3, cid = pid + 1, iid = pid + 2, content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    obj(pid, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R >>`);
+    obj(cid, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    offs[iid] = pos; put(`${iid} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.length} >>\nstream\n`);
+    put(j); put('\nendstream\nendobj\n');
+  });
+  const total = 3 + n * 3, xr = pos;
+  put(`xref\n0 ${total}\n0000000000 65535 f \n`);
+  for (let i = 1; i < total; i++) put(String(offs[i]).padStart(10, '0') + ' 00000 n \n');
+  put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function setStatus(msg, cls) { const s = $('status'); s.textContent = msg; s.className = 'status ' + (cls || ''); }
+function cleanName(s) { return (String(s).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').trim() || 'workout-plan'); }
+
+let busy = false;
+async function exportPdf() {
+  if (busy) return;
+  const all = planPages(S);
+  const hasContent = S.days.some(d => d.rest || d.rows.some(r => r.n.trim()));
+  if (!hasContent) return setStatus('اكتب تمرين واحد على الأقل قبل إنشاء الـ PDF.', 'err');
+  busy = true; const btn = $('export'); btn.disabled = true;
+  try {
+    setStatus('بجهّز الصفحات…', '');
+    await loadFonts();
+    const sc = 3, w = PW * sc, h = PH * sc, jp = [];
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
+    for (let i = 0; i < all.length; i++) {
+      setStatus(`بجهّز الصفحات… ${i + 1} من ${all.length}`, '');
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
+      drawPage(ctx, all[i], S, sc);
+      jp.push(await toJpeg(c));
+      await new Promise(r => setTimeout(r, 0));
+    }
+    const blob = buildPdf(jp, w, h);
+    const dl = await (window.claude && window.claude.use ? window.claude.use('downloads') : null);
+    if (!dl) { setStatus('التنزيل مش متاح في العرض ده. افتح الصفحة من claude.ai وجرّب تاني.', 'err'); return; }
+    const filename = cleanName($('filename').value) + '.pdf';
+    await dl.save({ filename, data: blob });
+    setStatus('تم حفظ ' + filename + ' (' + all.length + ' صفحة).', 'ok');
+  } catch (e) {
+    if (e && e.code === 'declined') setStatus('اتلغى التنزيل. اضغط تنزيل PDF تاني لما تكون جاهز.', '');
+    else setStatus('حصلت مشكلة وإحنا بنجهّز الملف. جرّب تاني.', 'err');
+  } finally { busy = false; btn.disabled = false; }
+}
+$('export').addEventListener('click', exportPdf);
+$('filename').value = S.file || 'workout-plan';
+$('filename').addEventListener('input', () => { S.file = $('filename').value; persist(); });
+
+/* ---------- boot ---------- */
+renderEditor(); renderPreview();
+loadFonts().then(renderPreview);
+window.__test = { parsePlan, planPages, drawPage, S: () => S, buildPdf, toJpeg, normReps };
+})();
+</script>
+
+</body></html>
