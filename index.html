@@ -122,6 +122,34 @@ pre.ex { margin: 0; background: var(--panel2); border: 1px solid var(--line); bo
 .lb { position: fixed; inset: 0; z-index: 50; background: rgba(4, 8, 16, .86); display: flex; align-items: center; justify-content: center; padding: 18px; flex-direction: column; gap: 10px; }
 .lb canvas { max-width: 100%; max-height: calc(100% - 52px); border-radius: 10px; box-shadow: 0 10px 50px rgba(0, 0, 0, .6); }
 .lb[hidden] { display: none; }
+.row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; row-gap: 7px; }
+.nmwrap { position: relative; min-width: 0; }
+.vline { grid-column: 1 / -1; display: flex; gap: 7px; align-items: center; }
+.vlab { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.vurl { direction: ltr; text-align: left; flex: 1 1 0; min-width: 0; font-size: 13px !important; padding: 6px 9px !important; }
+.vnote { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
+.vnote:empty { display: none; }
+.vnote.err { color: var(--danger); } .vnote.ok { color: var(--ok); }
+.sug { position: absolute; z-index: 30; inset-inline: 0; top: calc(100% + 4px); background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.28); max-height: 300px; overflow: auto; }
+.sug .opt { display: flex; flex-direction: column; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.sug .opt:last-child { border-bottom: 0; }
+.sug .opt[aria-selected=true], .sug .opt:hover { background: var(--panel2); }
+.sug .opt b { font-size: 14px; } .sug .opt span { font-size: 12px; color: var(--muted); }
+.ov { position: fixed; inset: 0; z-index: 60; background: rgba(4,8,16,.78); display: flex; align-items: flex-start; justify-content: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); overflow: auto; }
+.ov[hidden] { display: none; }
+.libbox { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: 100%; max-width: 680px; display: flex; flex-direction: column; gap: 12px; padding: 16px; max-height: calc(100dvh - 32px); }
+.libbox .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gchips { display: flex; gap: 6px; flex-wrap: wrap; }
+.gc { border: 1px solid var(--line); background: var(--panel2); color: var(--muted); border-radius: 99px; padding: 4px 12px; font-weight: 700; font-size: 13px; }
+.gc[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.liblist { overflow: auto; min-height: 120px; border-top: 1px solid var(--line); }
+.li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+.li .lt { display: flex; flex-direction: column; min-width: 0; }
+.li .en { font-size: 12.5px; color: var(--muted); direction: ltr; text-align: right; }
+.li .vt { font-size: 12px; color: var(--muted); unicode-bidi: plaintext; text-align: start; }
+.li .la { display: flex; gap: 6px; flex: none; }
+.li .btn { padding: 5px 12px; font-size: 13px; text-decoration: none; }
+@media (max-width: 560px) { .row, .colhead { grid-template-columns: minmax(0, 1fr) 34px; } .nmwrap { grid-column: 1 / -1; } .colhead { display: none; } }
 @media (prefers-reduced-motion: no-preference) { .btn, .thumb canvas { transition: border-color .15s; } }
 </style>
 
@@ -152,6 +180,16 @@ pre.ex { margin: 0; background: var(--panel2); border: 1px solid var(--line); bo
     </div>
     <button class="btn primary" id="export" type="button">تنزيل PDF</button>
     <p class="status" id="status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<div class="ov" id="libov" hidden>
+  <div class="libbox" role="dialog" aria-modal="true" aria-labelledby="libtitle">
+    <div class="head"><h2 id="libtitle">مكتبة التمارين</h2><button class="btn" type="button" id="libclose">إغلاق</button></div>
+    <input type="text" id="libq" placeholder="ابحث بالعربي أو الإنجليزي (مثال: دمبل عالي، lat pulldown)" autocomplete="off" aria-label="بحث في المكتبة">
+    <div class="gchips" id="libg" role="group" aria-label="العضلة"></div>
+    <div class="liblist" id="liblist"></div>
+    <p class="sub" style="margin:0" id="libcount"></p>
   </div>
 </div>
 
@@ -187,7 +225,7 @@ const REST_NOTE = 'الراحة جزء أساسي من الخطة: نوم كاف
 /* ---------- state ---------- */
 const KEY = 'workout-plan-draft-v1';
 let uidN = 0; const uid = () => 'x' + (++uidN) + Math.random().toString(36).slice(2, 5);
-const row = (n = '', r = '') => ({ id: uid(), n, r });
+const row = (n = '', r = '', v = '', lid = '') => ({ id: uid(), n, r, v, lid });
 const day = (o = {}) => Object.assign({ id: uid(), rest: false, muscle: '', rows: [row()], notes: '' }, o);
 
 function sample() {
@@ -205,7 +243,7 @@ function sample() {
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (s && Array.isArray(s.days)) { s.days.forEach(d => { d.id = d.id || uid(); (d.rows || []).forEach(r => r.id = r.id || uid()); }); return s; }
+    if (s && Array.isArray(s.days)) { s.days.forEach(d => { d.id = d.id || uid(); (d.rows || []).forEach(r => { r.id = r.id || uid(); r.v = r.v || ''; r.lid = r.lid || ''; }); }); return s; }
   } catch (e) {}
   return null;
 }
@@ -228,17 +266,78 @@ function normReps(s) {
   return s.replace(/\s+/g, ' ');
 }
 
+/* ---------- exercise library (video links) ---------- */
+const YT = 'https://www.youtube.com/watch?v=';
+const LIB = [{"id":"c1","g":"صدر","ar":"دمبل بنش مستوي","en":"Dumbbell Bench Press","al":"دمبل صدر|دمبل مستوي|دمبل برس|ضغط دمبل|dumbbell press|dumbell press|flat dumbbell press","v":"5Y3VZsLb1Ys","t":"How To Do Dumbbell Bench Press Correctly","ch":"Jack Hanrahan Fitness"},{"id":"c2","g":"صدر","ar":"دمبل بنش مائل (عالي)","en":"Incline Dumbbell Press","al":"دمبل عالي|دمبل مائل|دمبل انكلاين|incline dumbbell press|incline dumbell press|دمبل صدر علوي","v":"awEEyL5zGvU","t":"How To PROPERLY Dumbbell Incline Press Like A Pro","ch":"Colossus Fitness"},{"id":"c3","g":"صدر","ar":"دمبل بنش سفلي","en":"Decline Dumbbell Press","al":"دمبل سفلي|دمبل ديكلاين|decline dumbbell press","v":"k9CzXmJcJNw","t":"Decline Dumbbell Chest Press: How To","ch":"Hammer Fitness"},{"id":"c4","g":"صدر","ar":"فتح دمبل (فلاي)","en":"Dumbbell Chest Fly","al":"فلاي دمبل|فراشة دمبل|دمبل فلاي|فتح صدر دمبل|dumbbell fly","v":"Nhvz9EzdJ4U","t":"How To Do A Dumbbell Chest Fly","ch":"PureGym"},{"id":"c5","g":"صدر","ar":"فتح دمبل مائل","en":"Incline Dumbbell Fly","al":"فلاي عالي|فلاي دمبل مائل|فراشة دمبل عالي|incline fly","v":"idAvu2HvqSQ","t":"HOW TO: Incline Dumbbell Fly || PERFECT FORM","ch":"ScottHermanFitness"},{"id":"c6","g":"صدر","ar":"جهاز ضغط صدر","en":"Chest Press Machine","al":"جهاز دفع صدر|شيست برس|تشيست برس|ماشين صدر|chest press machine","v":"B-zyH8OTlsg","t":"Machine Chest Press: How To","ch":"Hammer Fitness"},{"id":"c7","g":"صدر","ar":"فراشة جهاز (بيك ديك)","en":"Pec Deck / Fly Machine","al":"فراشة|بيك ديك|جهاز فلاي|فلاي ماشين|fly machine|pec deck","v":"hZ0CGRaKwbQ","t":"Pec Deck / Chest Fly: How To","ch":"Hammer Fitness"},{"id":"c8","g":"صدر","ar":"كابل كروس أوفر","en":"Cable Crossover","al":"كروس اوفر|كابل فلاي|فلاي كابل|كابل صدر|cable fly|cable crossover","v":"Hh7UC-I3k_U","t":"Cable Crossover Chest Fly","ch":""},{"id":"c9","g":"صدر","ar":"كابل فلاي من أسفل لأعلى","en":"Low-to-High Cable Fly","al":"كابل صدر علوي|فلاي كابل من تحت|low to high cable fly","v":"eQ_NBB6OBH4","t":"HOW TO: Chest \"Low-To-High\" Cable Fly","ch":"ScottHermanFitness"},{"id":"c10","g":"صدر","ar":"بار بنش مستوي","en":"Barbell Flat Bench Press","al":"بنش برس|بار صدر|بار مستوي|بار فلات|bar flat press|bench press|barbell bench press","v":"rT7DgCr-3pg","t":"How To: Barbell Bench Press","ch":"ScottHermanFitness"},{"id":"c11","g":"صدر","ar":"بار بنش مائل (عالي)","en":"Barbell Incline Bench Press","al":"بار عالي|بار مائل|بار انكلاين|bar incline press|incline bench press","v":"11gY7Q5D5wo","t":"How to Do an Incline Barbell Bench Press","ch":"LIVESTRONG"},{"id":"c12","g":"صدر","ar":"ضغط (Push-Up)","en":"Push-Ups","al":"بوش اب|تمرين الضغط|ضغط ارضي|push up|pushup","v":"ba8tr1NzwXU","t":"The Perfect Push Up!","ch":"SaturnoMovement"},{"id":"c13","g":"صدر","ar":"متوازي للصدر (Dips)","en":"Chest Dips","al":"ديبس|متوازي|باراليل|ديبس صدر|dips","v":"yN6Q1UI_xkE","t":"How To Do Dips For A Bigger Chest and Shoulders","ch":"Jeff Nippard"},{"id":"c14","g":"صدر","ar":"سميث بنش مستوي","en":"Smith Machine Bench Press","al":"سميث صدر|بنش سميث|smith bench","v":"7FyJdsXeta8","t":"Exercise Tutorial: Smith Machine Bench Press","ch":"Travis Tarrant"},{"id":"c15","g":"صدر","ar":"سميث بنش مائل","en":"Smith Machine Incline Press","al":"سميث عالي|سميث صدر علوي|smith incline","v":"PbROfDSbK4s","t":"How to: Incline Smith Machine Chest Press","ch":"ATLASTHETICS"},{"id":"b1","g":"ظهر","ar":"سحب عالي واسع","en":"Lat Pulldown Wide Grip","al":"لات بول داون واسع|سحب امامي واسع|سحب عالي|لات واسع|lat pulldown wide grip|lat pulldown wide|lat pull down","v":"7JnP8dFbS14","t":"How To Do A Wide Grip Lat Pulldown","ch":"PureGym"},{"id":"b2","g":"ظهر","ar":"سحب عالي ضيق","en":"Lat Pulldown Close Grip","al":"سحب عالي مقبض ضيق|لات ضيق|سحب امامي ضيق|lat pulldown close grip|lat pulldown close|سحب عالي مثلث","v":"qZOD47cHSi0","t":"Lat Pulldown - Close Grip - Neutral","ch":"Kyl Raggio"},{"id":"b3","g":"ظهر","ar":"سحب أرضي واسع","en":"Seated Cable Row Wide Grip","al":"تجديف كابل واسع|سيتد رو واسع|سحب ارضي|رو واسع|seated row wide grip|seated row wide|cable row wide","v":"SYZxuSSQ-hk","t":"How to Do a Seated Wide Grip Cable Row","ch":"KDTrains"},{"id":"b4","g":"ظهر","ar":"سحب أرضي ضيق","en":"Seated Cable Row Close Grip","al":"تجديف كابل ضيق|سيتد رو ضيق|سحب ارضي مثلث|رو ضيق|seated row close grip|seated row close|v bar row","v":"wVy_G_vA4nA","t":"How To Seated Cable Row With V-Bar","ch":"Total Body Training"},{"id":"b5","g":"ظهر","ar":"عقلة (Pull-Up)","en":"Pull-Ups","al":"عقلة|بول اب|عقلة واسعة|pull up|pullup","v":"TMnxKjdYcME","t":"How To Do A Pull Up: Correct Form & Technique","ch":"Myprotein"},{"id":"b6","g":"ظهر","ar":"عقلة قبضة عكسية (Chin-Up)","en":"Chin-Ups","al":"عقلة عكسي|تشين اب|عقلة ضيقة|chin up","v":"ykPUIEj4-W0","t":"How To Do Chin-Ups Properly","ch":"John Goodman"},{"id":"b7","g":"ظهر","ar":"تجديف بار","en":"Barbell Bent-Over Row","al":"بار رو|باربل رو|تجديف بار منحني|barbell row|bent over row","v":"YcK7pyFXmWk","t":"How To Barbell Bent-Over Row Properly","ch":"Fit Father Project"},{"id":"b8","g":"ظهر","ar":"تجديف دمبل (ذراع واحدة)","en":"One-Arm Dumbbell Row","al":"دمبل رو|تجديف دمبل|ظهر دمبل|dumbbell row|one arm row","v":"9kbvlaLSTpE","t":"One Arm Dumbbell Row: Correct Form & 5 COMMON MISTAKES","ch":"TOUGH GUN functional"},{"id":"b9","g":"ظهر","ar":"تي بار رو","en":"T-Bar Row","al":"تي بار|تجديف تي بار|t bar row","v":"O3jLEkx4n0w","t":"Proper T-Bar Row Form","ch":""},{"id":"b10","g":"ظهر","ar":"سحب ذراع مفرودة","en":"Straight-Arm Pulldown","al":"سترايت ارم|سحب علوي مفرود|لات مفرود|straight arm pulldown","v":"WDOV2PDpkiU","t":"How To Straight Arm Pulldown Properly","ch":"Colossus Fitness"},{"id":"b11","g":"ظهر","ar":"ديدليفت","en":"Conventional Deadlift","al":"ديد ليفت|رفعة ميتة|deadlift|dead lift","v":"VL5Ab0T07e4","t":"Build A Bigger Deadlift With Perfect Technique","ch":"Jeff Nippard"},{"id":"b12","g":"ظهر","ar":"قطنية (Back Extension)","en":"Back Extension / Hyperextension","al":"قطنية جهاز|هايبر اكستنشن|باك اكستنشن|تمرين القطنية|hyperextension|back extension","v":"gLT-WLH84B4","t":"Back Extension (Hyperextension) - Proper Form & Technique","ch":"Steev"},{"id":"b13","g":"ظهر","ar":"تجديف جهاز (صدر مسنود)","en":"Chest-Supported Machine Row","al":"رو ماشين|جهاز تجديف|ظهر جهاز|machine row|chest supported row","v":"Y8yIJvSEB3U","t":"Chest Supported Machine Row - How To","ch":""},{"id":"b14","g":"ظهر","ar":"فيس بول","en":"Face Pull","al":"فيس بل|سحب للوجه|كتف خلفي كابل|face pull","v":"ljgqer1ZpXg","t":"STOP F*cking Up Face Pulls (PROPER FORM!)","ch":"ATHLEAN-X"},{"id":"b15","g":"ظهر","ar":"سحب عالي قبضة عكسية","en":"Reverse-Grip Lat Pulldown","al":"سحب عالي عكسي|لات عكسي|underhand pulldown|reverse grip pulldown","v":"kWwPlzwTYAE","t":"How To Do Reverse Grip Lat Pulldown","ch":"FIT LIFE REGIME"},{"id":"s1","g":"كتف","ar":"دمبل شولدر برس","en":"Seated Dumbbell Shoulder Press","al":"شولدر برس|ضغط كتف|كتف دمبل|دمبل كتف|shoulder press|sholder press|shoulder press dumbbell|dumbbell shoulder press","v":"WKEl69bIGus","t":"How to Do the Seated Dumbbell Shoulder Press","ch":"All Strength Training"},{"id":"s2","g":"كتف","ar":"بار شولدر برس (واقف)","en":"Barbell Overhead Press","al":"ملتري برس|بار كتف|ضغط كتف بار|overhead press|military press|barbell shoulder press","v":"3VpI0V_9D0Y","t":"How to Do the Standing Barbell Overhead Press","ch":"All Strength Training"},{"id":"s3","g":"كتف","ar":"جهاز ضغط كتف","en":"Machine Shoulder Press","al":"شولدر برس ماشين|كتف جهاز|ماشين كتف|machine shoulder press","v":"1MPxZjVuLyY","t":"How to PROPERLY Shoulder Machine Press","ch":""},{"id":"s4","g":"كتف","ar":"رفرفة جانبي دمبل","en":"Dumbbell Lateral Raise","al":"رفرفة جانبي|جانبي|رفرفه جانبي|لاترال ريز|لاتيرال ريز|lateral raise|latrial rasis|side raise|lateral rasis","v":"ssAo_xwFt5c","t":"How to Do Dumbbell Lateral Raises","ch":"Brendan Wong"},{"id":"s5","g":"كتف","ar":"رفرفة جانبي كابل","en":"Cable Lateral Raise","al":"جانبي كابل|كابل لاترال|cable lateral raise","v":"zpbm-xRHB6k","t":"Cable Lateral Raise | Proper Form Tutorial","ch":"FIT.nl"},{"id":"s6","g":"كتف","ar":"رفرفة أمامي دمبل","en":"Dumbbell Front Raise","al":"رفرفة امامي|امامي دمبل|فرونت ريز|front raise","v":"qmFQTDYwpsg","t":"How to PROPERLY Dumbbell Front Raise","ch":""},{"id":"s7","g":"كتف","ar":"رفرفة خلفي دمبل","en":"Bent-Over Rear Delt Fly","al":"رفرفة خلفي|كتف خلفي|كتف خلفي دمبل|ريير دلت|rear delt fly|rear delt","v":"UO_v23hHAdM","t":"Bent Over Dumbbell Rear Delt Flyes","ch":"Vivian Ngo"},{"id":"s8","g":"كتف","ar":"كتف خلفي جهاز (فراشة عكسية)","en":"Reverse Pec Deck","al":"فراشة عكسية|فراشة خلفي|ريفرس بيك ديك|reverse pec deck|reverse fly machine","v":"lUBnuuwDzCk","t":"How To: Reverse Pec Deck For Massive Rear Delts","ch":"Muscle Matrix"},{"id":"s9","g":"كتف","ar":"أرنولد برس","en":"Arnold Press","al":"ارنولد|ارنولد برس|arnold press","v":"ris9tKqMwgU","t":"Stop F*cking Up The Arnold Press (PROPER FORM!)","ch":"ATHLEAN-X"},{"id":"s10","g":"كتف","ar":"سحب عمودي بار","en":"Barbell Upright Row","al":"اب رايت رو|سحب عمودي|سحب للذقن|upright row","v":"93BUvCE92As","t":"How to Upright Row PROPERLY","ch":""},{"id":"s11","g":"كتف","ar":"ترابيس بار (شراجز)","en":"Barbell Shrugs","al":"شراجز|ترابيس|ترابيس بار|شراج بار|shrugs|barbell shrug","v":"KbsQ1E8Hg0o","t":"How To Perform The Barbell Shrug With Perfect Technique","ch":"Myprotein"},{"id":"s12","g":"كتف","ar":"ترابيس دمبل","en":"Dumbbell Shrugs","al":"شراجز دمبل|ترابيس دمبل|dumbbell shrug","v":"zrs4FLeF_-4","t":"How to Perform Dumbbell Shrugs","ch":"Hayden Steele"},{"id":"s13","g":"بايسبس","ar":"بايسبس بار واقف","en":"Standing Barbell Curl","al":"بايسبس بار|بار بايسبس|باربل كيرل|barbell curl|biceps barbell","v":"ajXnfC6FaU0","t":"How To Do STANDING BARBELL CURLS","ch":""},{"id":"s14","g":"بايسبس","ar":"بايسبس بار EZ","en":"EZ-Bar Curl","al":"بايسبس بار زجزاج|بار ايزي|بار مكسور|ez bar curl|ez curl","v":"7lZ78fo-yUA","t":"How to Do an EZ Bar Curl (Proper Form)","ch":""},{"id":"s15","g":"بايسبس","ar":"بايسبس دمبل","en":"Alternating Dumbbell Curl","al":"دمبل بايسبس|بايسبس دمبل بالتبادل|dumbbell curl|biceps dumbbell","v":"kwQhuf-uRGY","t":"How To Perform Standing Alternating Dumbbell Curls","ch":""},{"id":"s16","g":"بايسبس","ar":"هامر (Hammer Curl)","en":"Hammer Curl","al":"هامر|بايسبس هامر|هامر دمبل|hammer curl","v":"G7hy-AxQwcQ","t":"How To PROPERLY Hammer Curl For Bigger Biceps","ch":"Colossus Fitness"},{"id":"a1","g":"بايسبس","ar":"بريتشر كيرل","en":"Preacher Curl","al":"بريتشر|بايسبس بريتشر|بايسبس سكوت|بايسبس مسنود|preacher curl","v":"cuoJ5PlgqAI","t":"How To Do Preacher Curls for Biceps","ch":""},{"id":"a2","g":"بايسبس","ar":"بايسبس دمبل مائل","en":"Incline Dumbbell Curl","al":"بايسبس مائل|بايسبس انكلاين|incline curl","v":"e3zNNfjJszA","t":"Incline Dumbbell Curl Form (How-To in 90 Seconds)","ch":"J2FIT"},{"id":"a3","g":"بايسبس","ar":"كونسنتريشن كيرل (تركيز)","en":"Concentration Curl","al":"بايسبس تركيز|كونسنتريشن|concentration curl","v":"sYv1q8AsMUc","t":"Concentration Curl: Proper Form and Common Mistakes","ch":"Dr. Fitology"},{"id":"a4","g":"بايسبس","ar":"بايسبس كابل","en":"Cable Biceps Curl","al":"كابل بايسبس|بايسبس حبل|cable curl|cable biceps","v":"16aEi1a68E0","t":"How to Do the Cable Biceps Curl With Perfect Form","ch":"Men's Health Muscle"},{"id":"a5","g":"ترايسبس","ar":"ترايسبس كابل حبل","en":"Triceps Rope Pushdown","al":"ترايسبس كابل|ترايسبس حبل|ترايسبس بوش داون|ترايسبس نزول|rope pushdown|triceps pushdown|tricep rope","v":"K--j4Qh9d2s","t":"Cable Rope Triceps Pushdown - Proper Form","ch":"Germain Craddock's EVA"},{"id":"a6","g":"ترايسبس","ar":"ترايسبس كابل بار مستقيم","en":"Triceps Straight-Bar Pushdown","al":"ترايسبس بار|ترايسبس كابل بار|ترايسبس مقبض|bar pushdown|straight bar pushdown","v":"8JBHlaS7Dkk","t":"Tricep Pushdown with Straight Bar","ch":"Nevels Fitness"},{"id":"a7","g":"ترايسبس","ar":"ترايسبس دمبل خلف الرأس","en":"Overhead Dumbbell Triceps Extension","al":"ترايسبس دمبل|ترايسبس اوفر هيد|ترايسبس خلفي دمبل|overhead triceps extension|dumbbell triceps extension","v":"xbNm9fRoUTw","t":"Dumbbell Overhead Tricep Extension","ch":"Catalyst Athletics"},{"id":"a8","g":"ترايسبس","ar":"سكل كراشر (فرنش برس)","en":"Skull Crushers","al":"سكل كراشر|فرنش برس|ترايسبس نايم|ترايسبس بار نايم|skull crusher|lying triceps extension","v":"tj81tVq3wLo","t":"How to Do Lying Triceps Extension (Skull Crusher)","ch":"FIT.nl"},{"id":"a9","g":"ترايسبس","ar":"بنش ضيق (Close-Grip)","en":"Close-Grip Bench Press","al":"بنش برس ضيق|بار ضيق|ضغط صدر ضيق|close grip bench","v":"a2G3IdaTcPU","t":"How To Do The Close Grip Bench Press","ch":"SET FOR SET"},{"id":"a10","g":"ترايسبس","ar":"ديبس بنش","en":"Bench Dips","al":"ديبس ترايسبس|ديبس على الكرسي|ترايسبس بنش|bench dip","v":"WVeZDBhZwLA","t":"How to do a Bench Dip","ch":"NASM"},{"id":"a11","g":"ترايسبس","ar":"ترايسبس كابل خلف الرأس","en":"Cable Overhead Triceps Extension","al":"ترايسبس كابل اوفر هيد|ترايسبس كابل من ورا|cable overhead extension","v":"_iSX_125XUg","t":"Cable Tricep Extension Tutorial","ch":"Train with Dave"},{"id":"a12","g":"ترايسبس","ar":"ترايسبس كيك باك","en":"Triceps Kickback","al":"كيك باك|ترايسبس دمبل منحني|ترايسبس ركلة|kickback|tricep kickback","v":"ShCYaoHmWmk","t":"Dumbbell Kickback","ch":"LivestrongWoman"},{"id":"a13","g":"بطن","ar":"كرانش","en":"Crunches","al":"بطن كرانش|بطن|تمرين البطن|crunch|crunches","v":"TBZAdtsoGgw","t":"How to PROPERLY do CRUNCHES","ch":""},{"id":"a14","g":"بطن","ar":"بلانك","en":"Plank","al":"plank|بلانك|ثبات بطن","v":"mwlp75MS6Rg","t":"How to do a Plank","ch":"NASM"},{"id":"a15","g":"بطن","ar":"رفع أرجل معلق","en":"Hanging Leg Raise","al":"رفع ارجل|بطن سفلي|هانجنج ليج ريز|رفع رجل معلق|hanging leg raise|leg raise","v":"-LHetdLNhjI","t":"Hanging Leg Raise, Proper Form","ch":"Testosterone Nation"},{"id":"a16","g":"بطن","ar":"كرانش كابل","en":"Cable Crunch","al":"بطن كابل|كابل كرانش|cable crunch","v":"ToJeyhydUxU","t":"Cable Crunch: Do It Right!","ch":"Testosterone Nation"},{"id":"a17","g":"بطن","ar":"روسيان تويست","en":"Russian Twist","al":"لف بطن|تويست|روسيان|russian twist","v":"DF0sPfwys_g","t":"How to Do Russian Twists Correctly","ch":"Get Healthy U"},{"id":"a18","g":"بطن","ar":"عجلة البطن","en":"Ab Wheel Rollout","al":"ab wheel|عجلة بطن|اب ويل|رول اوت|ab rollout","v":"NbudTqiwguk","t":"Ab Wheel Rollout - Proper Form & Technique","ch":"Steev"},{"id":"l1","g":"أرجل","ar":"سكوات بار","en":"Barbell Back Squat","al":"سكوات|اسكوات|سكوات خلفي|squat|back squat|barbell squat","v":"_vNjV8teHW0","t":"Barbell Back Squat: How To (3 steps to proper form)","ch":"Born Fitness"},{"id":"l2","g":"أرجل","ar":"مكبس (ليج برس)","en":"Leg Press","al":"مكبس|ليج برس|مكبس رجل|جهاز المكبس|leg press","v":"K5n2vg3oZa4","t":"How to PROPERLY Leg Press","ch":"Colossus Fitness"},{"id":"l3","g":"أرجل","ar":"رجل أمامي جهاز","en":"Leg Extension","al":"رجل أمامي|ليج اكستنشن|فخذ امامي|leg extension","v":"ECt7bZ9zc4c","t":"Seated Leg Extension: How To","ch":""},{"id":"l4","g":"أرجل","ar":"رجل خلفي نايم","en":"Lying Leg Curl","al":"رجل خلفي|رجل خلفي جهاز|ليج كيرل|فخذ خلفي نايم|lying leg curl|leg curl","v":"NlZeAGZ_YJw","t":"How to do a Lying Leg Curl","ch":"Blackstone Labs"},{"id":"l5","g":"أرجل","ar":"رجل خلفي جلوس","en":"Seated Leg Curl","al":"ليج كيرل جلوس|فخذ خلفي جالس|seated leg curl","v":"Z5pRnXaCjpM","t":"Seated Leg Curl: How To","ch":"Hammer Fitness"},{"id":"l6","g":"أرجل","ar":"رومانيان ديدليفت","en":"Romanian Deadlift","al":"رومانيان|ار دي ال|rdl|romanian deadlift|ديدليفت رومانيان|فخذ خلفي بار","v":"yjqRj72AuaE","t":"How to Do a Romanian Deadlift (RDL)","ch":"Nat Wilson Fitness"},{"id":"l7","g":"أرجل","ar":"لانجز مشي دمبل","en":"Dumbbell Walking Lunges","al":"لانجز|لانج|طعنات|walking lunge|lunges|lunge","v":"I34ysEkPK7w","t":"Dumbbell Walking Lunge - How To","ch":"Bobby Maximus"},{"id":"l8","g":"أرجل","ar":"بلغاري سبليت سكوات","en":"Bulgarian Split Squat","al":"بلغاري|سبليت سكوات|bulgarian split squat|split squat","v":"YFLHDXeekVc","t":"Bulgarian Split Squat: How To (3 steps to proper form)","ch":"Born Fitness"},{"id":"l9","g":"أرجل","ar":"هاك سكوات","en":"Hack Squat Machine","al":"هاك سكوات|هاك|جهاز هاك|hack squat","v":"hglQExHCM9Q","t":"Hack Squat Machine (Exercise Tutorial + Form Tips)","ch":"Vivian Ngo"},{"id":"l10","g":"أرجل","ar":"جوبلت سكوات","en":"Goblet Squat","al":"جوبلت|سكوات دمبل|goblet squat","v":"vu0ZfLsHi0E","t":"Goblet Squat: How To (3 steps to proper form)","ch":"Born Fitness"},{"id":"l11","g":"أرجل","ar":"هيب ثراست","en":"Barbell Hip Thrust","al":"هيب ثرست|هيب ثراست بار|ارداف|glute bridge|hip thrust","v":"NDlzVV-UCHE","t":"Barbell Hip Thrust - Proper Form & Technique","ch":""},{"id":"l12","g":"أرجل","ar":"سمانة واقف","en":"Standing Calf Raise","al":"سمانة|سمانه|سمانة واقفة|calf raise|standing calf raise","v":"97NbelB5yvQ","t":"How to do Standing Calf Raises","ch":"Canadian Protein"},{"id":"l13","g":"أرجل","ar":"سمانة جلوس","en":"Seated Calf Raise","al":"سمانة جالس|سمانه جلوس|seated calf raise","v":"6O5hh1rBtx8","t":"How to PROPERLY Calf Raise (SEATED CALF RAISE TIPS)","ch":"Colossus Fitness"},{"id":"l14","g":"أرجل","ar":"جهاز تقريب الفخذ (داخلي)","en":"Hip Adductor Machine","al":"تقريب فخذ|فخذ داخلي|اداكتور|جهاز داخلي|adductor|hip adduction","v":"ScqpbvOZWe8","t":"Hip Adduction Machine: How To","ch":"Hammer Fitness"},{"id":"l15","g":"أرجل","ar":"جهاز تبعيد الفخذ (خارجي)","en":"Hip Abductor Machine","al":"تبعيد فخذ|فخذ خارجي|ابداكتور|جهاز خارجي|abductor|hip abduction","v":"cja4D-SoPjE","t":"Hip Abductor Machine: How to","ch":"Hammer Fitness"},{"id":"l16","g":"أرجل","ar":"سكوات سميث","en":"Smith Machine Squat","al":"سميث سكوات|سكوات سميث ماشين|smith squat","v":"iAcRGCsG_PY","t":"Exercise Tutorial: Smith Machine Squat","ch":"Travis Tarrant"},{"id":"l17","g":"أرجل","ar":"سومو ديدليفت","en":"Sumo Deadlift","al":"سومو|ديدليفت سومو|sumo deadlift","v":"TrNEnQ5XCBE","t":"How to Sumo Deadlift Correctly","ch":"Muscle & Motion"},{"id":"l18","g":"أرجل","ar":"كابل ركلة خلفية (جلوتس)","en":"Cable Glute Kickback","al":"جلوتس كابل|ركلة خلفية كابل|كيك باك كابل|glute kickback|cable kickback","v":"5jJNfIlKTmg","t":"How to PROPERLY Cable Glute Kickback","ch":"Colossus Fitness"}];
+const LIBBY = Object.fromEntries(LIB.map(e => [e.id, e]));
+const GROUPS = ['الكل', 'صدر', 'ظهر', 'كتف', 'بايسبس', 'ترايسبس', 'أرجل', 'بطن'];
+const normT = s => nd(String(s).toLowerCase()).replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+const toks = s => normT(s).split(' ').filter(Boolean).map(w => (w.length > 3 && w.startsWith('ال')) ? w.slice(2) : w);
+const LIBX = LIB.map(e => ({ e, ph: [e.ar.replace(/\(.*?\)/g, ' '), e.ar, e.en].concat(e.al.split('|')).map(toks).filter(a => a.length) }));
+const plainName = e => e.ar.replace(/\s*\([A-Za-z0-9\- ]+\)/g, '').trim();
+function normUrl(s) {
+  s = String(s || '').trim(); if (!s) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s;
+  try { const u = new URL(s); if (!/^https?:$/.test(u.protocol) || !/\./.test(u.hostname)) return null; return u.href; } catch (e) { return null; }
+}
+function libSearch(q, lim = 6) {
+  const qt = toks(q); if (!qt.length) return [];
+  const key = qt.join(' '), out = [];
+  for (const x of LIBX) {
+    let sc = 0, ok = true;
+    for (const t of qt) {
+      let best = 0;
+      for (const p of x.ph) for (const w of p) { if (w === t) best = Math.max(best, 60); else if (w.startsWith(t)) best = Math.max(best, 45); else if (t.length >= 3 && w.includes(t)) best = Math.max(best, 20); }
+      if (!best) { ok = false; break; } sc += best;
+    }
+    if (ok) { if (x.ph.some(p => p.join(' ') === key)) sc += 80; out.push([sc, x.e]); }
+  }
+  return out.sort((a, b) => b[0] - a[0]).slice(0, lim).map(a => a[1]);
+}
+/* conservative: only links a typed name when it is the same exercise, never a guess */
+function autoMatch(name) {
+  const q = toks(name); if (!q.length) return null;
+  const key = q.slice().sort().join(' '); const best = new Map();
+  for (const x of LIBX) for (const p of x.ph) {
+    let sc = 0;
+    if (p.slice().sort().join(' ') === key) sc = 100;
+    else if (p.length >= 2 && p.every(t => q.includes(t)) && q.length - p.length <= 1) sc = 60;
+    if (sc > (best.get(x.e.id) || 0)) best.set(x.e.id, sc);
+  }
+  let top = 0; best.forEach(v => { if (v > top) top = v; });
+  if (!top) return null;
+  const winners = [...best].filter(([, v]) => v === top);
+  return winners.length === 1 ? LIBBY[winners[0][0]] : null;
+}
+function autolink(days) {
+  let total = 0, hit = 0;
+  days.forEach(d => { if (d.rest) return; d.rows.forEach(r => {
+    if (!r.n.trim() || r.v.trim()) return; total++;
+    const m = autoMatch(r.n); if (m) { r.v = YT + m.v; r.lid = m.id; hit++; }
+  }); });
+  return { total, hit };
+}
+function vInfo(r) {
+  if (!r.v.trim()) return { txt: '', cls: '' };
+  const u = normUrl(r.v);
+  if (u === null) return { txt: 'الرابط مش صحيح، مش هيظهر في الـ PDF.', cls: 'err' };
+  const e = r.lid && LIBBY[r.lid];
+  if (e && u === YT + e.v) return { txt: 'من المكتبة: <bdi>' + esc(e.t + (e.ch ? ' — ' + e.ch : '')) + '</bdi>', cls: 'ok' };
+  return { txt: 'رابط حر. هيظهر في الـ PDF تحت التمرين كـ «مشاهدة فيديو التمرين».', cls: 'ok' };
+}
+
 /* ---------- pasted-text parser ---------- */
 const NOTE_RE = /^(?:ملاحظ[اة]ت?|note[s]?)\s*[:：]\s*(.*)$/i;
 const REPS_A = /(\d+\s*[x*X×✕]\s*\d+(?:\s*[-–\/]\s*\d+)?)\s*$/;
 const REPS_B = /(\d+(?:\s*[-–\/]\s*\d+)?\s*(?:دقيقة|دقيقه|دقائق|دقايق|min))\s*$/i;
 function parseRow(line) {
-  let l = nd(line).replace(/^[\s\-•*·\d]+[.)\-]\s+/, '').trim();
+  let v = '';
+  let l = nd(line).replace(/https?:\/\/\S+/i, m => { v = m; return ' '; }).replace(/^[\s\-•*·\d]+[.)\-]\s+/, '').trim();
   l = l.replace(/من\s*(\d+)\s*(?:الى|الي|إلى)\s*(\d+)/g, '$1-$2');
-  if (/[|\t]/.test(l)) { const p = l.split(/[|\t]/); return { n: p[0].trim(), r: normReps(p.slice(1).join(' ')) }; }
+  if (/[|\t]/.test(l)) { const p = l.split(/[|\t]/); return { n: p[0].trim(), r: normReps(p.slice(1).join(' ')), v }; }
   let m = l.match(REPS_A) || l.match(REPS_B);
-  if (m) { const n = l.slice(0, m.index).replace(/[\s:：\-–]+$/, '').trim(); if (n) return { n, r: normReps(m[1]) }; }
-  return { n: l, r: '' };
+  if (m) { const n = l.slice(0, m.index).replace(/[\s:：\-–]+$/, '').trim(); if (n) return { n, r: normReps(m[1]), v }; }
+  return { n: l, r: '', v };
 }
 function parsePlan(text) {
   const blocks = String(text).replace(/\r/g, '').split(/\n\s*\n/).map(b => b.split('\n').map(l => l.trim()).filter(Boolean)).filter(b => b.length);
@@ -255,7 +354,7 @@ function parsePlan(text) {
       const nm = b[i].match(NOTE_RE);
       if (nm) { notes.push(nm[1]); continue; }
       if (restDay) { notes.push(b[i]); continue; }
-      const r = parseRow(b[i]); if (r.n) d.rows.push(row(r.n, r.r));
+      const r = parseRow(b[i]); if (r.n) d.rows.push(row(r.n, r.r, r.v));
     }
     d.notes = notes.join('\n');
     if (!d.rest && !d.rows.length) d.rows = [row()];
@@ -333,7 +432,7 @@ function notesHeight(notes) {
 }
 function planDay(d, i) {
   const label = 'اليوم ' + (ORD[i] || (i + 1));
-  let rows = d.rest ? [{ n: 'يوم راحة كاملة', r: '—' }] : d.rows.filter(r => r.n.trim() || r.r.trim()).map(r => ({ n: r.n.trim(), r: normReps(r.r) }));
+  let rows = d.rest ? [{ n: 'يوم راحة كاملة', r: '—' }] : d.rows.filter(r => r.n.trim() || r.r.trim()).map(r => ({ n: r.n.trim(), r: normReps(r.r), v: normUrl(r.v) || '' }));
   let notes = (d.notes || '').trim(); if (d.rest && !notes) notes = REST_NOTE;
   const H = notes ? notesHeight(notes) : 0;
   const maxRows = Math.max(4, Math.min(14, Math.floor((915 - 205.2 - (H ? H + 18 : 0) - 40) / 48) + 1));
@@ -380,7 +479,18 @@ function drawCover(ctx, S) {
   });
   T(ctx, 'WORKOUT PLAN  |  MOBILE EDITION', 50.4, 856.8, 432, 39.6, { size: 9, weight: 700, color: K.mute, align: 'left', dir: 'ltr' });
 }
+function drawVideoLink(ctx, p, url, y, cardH) {
+  const label = 'مشاهدة فيديو التمرين', right = 437.76, ly = y + cardH - 16, lh = 13;
+  ctx.font = `600 10.5px ${FONT}`; ctx.direction = 'rtl'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(label).width, cy = ly + lh / 2;
+  ctx.fillStyle = K.blue; ctx.fillText(label, right, cy + 0.4);
+  rect(ctx, right - w, cy + 6.2, w, 0.8, K.blue);
+  const tx = right - w - 11;
+  ctx.beginPath(); ctx.moveTo(tx, cy - 4.2); ctx.lineTo(tx + 7, cy); ctx.lineTo(tx, cy + 4.2); ctx.closePath(); ctx.fillStyle = K.blue; ctx.fill();
+  p.links.push({ x: tx - 3, y: ly - 1, w: right + 3 - (tx - 3), h: lh + 2, url });
+}
 function drawDay(ctx, p) {
+  p.links = [];
   base(ctx, p.title, p.muscle ? 'العضلة المستهدفة: ' + p.muscle : '', p.no);
   rr(ctx, 44.64, 133.2, 450, 56.16, K.blue2, K.blue2);
   T(ctx, 'التمارين', 64.8, 142.56, 406.8, 34.56, { size: 17, weight: 700 });
@@ -393,7 +503,8 @@ function drawDay(ctx, p) {
     const y = 205.2 + i * pitch;
     rr(ctx, 44.64, y, 435.6 + 14.4, cardH, K.card, K.line);
     dot(ctx, 455.76, y + cardH / 2, 2.88, K.blue);
-    T(ctx, r.n, 170, y, 276.4, cardH, { size: fs, weight: 400, lh: 1.25 });
+    T(ctx, r.n, 170, y, 276.4, r.v ? cardH - 14 : cardH, { size: fs, weight: 400, lh: 1.25 });
+    if (r.v) drawVideoLink(ctx, p, r.v, y, cardH);
     if (r.r) T(ctx, r.r, 64.8, y, 105, cardH, { size: fs, weight: 700, color: K.blue, align: 'left', dir: autoDir(r.r) === 'rtl' ? 'rtl' : 'ltr', lh: 1.2 });
   });
   if (p.notes) {
@@ -495,12 +606,19 @@ function dayHtml(d, i) {
   const name = 'اليوم ' + (ORD[i] || (i + 1));
   const rows = d.rest
     ? '<p class="restnote">صفحة راحة كاملة. اكتب ملاحظة لو عايز، أو سيبها وهتظهر الملاحظة الافتراضية.</p>'
-    : `<div class="rows"><div class="colhead"><span>اسم التمرين</span><span>مجموعات × تكرار</span><span></span></div>${d.rows.map(r => `
+    : `<div class="rows"><div class="colhead"><span>اسم التمرين</span><span>مجموعات × تكرار</span><span></span></div>${d.rows.map(r => { const vi = vInfo(r); return `
         <div class="row">
-          <input type="text" id="${d.id}-${r.id}-n" data-day="${d.id}" data-row="${r.id}" data-k="n" value="${esc(r.n)}" placeholder="مثال: سحب عالي واسع" autocomplete="off" aria-label="اسم التمرين">
+          <div class="nmwrap"><input type="text" id="${d.id}-${r.id}-n" data-day="${d.id}" data-row="${r.id}" data-k="n" value="${esc(r.n)}" placeholder="اكتب اسم التمرين أو اختاره من المكتبة" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-label="اسم التمرين"></div>
           <input type="text" class="reps" id="${d.id}-${r.id}-r" data-day="${d.id}" data-row="${r.id}" data-k="r" value="${esc(r.r)}" placeholder="3 × 12" autocomplete="off" aria-label="المجموعات والتكرار">
           <button type="button" class="btn ghost ico danger" data-act="del-row" data-day="${d.id}" data-row="${r.id}" aria-label="حذف التمرين">${svg.x}</button>
-        </div>`).join('')}</div>
+          <div class="vline">
+            <span class="vlab">فيديو الشرح</span>
+            <input type="text" class="vurl" id="${d.id}-${r.id}-v" data-day="${d.id}" data-row="${r.id}" data-k="v" value="${esc(r.v)}" placeholder="الصق رابط حر أو اختار من المكتبة" autocomplete="off" inputmode="url" aria-label="رابط فيديو التمرين">
+            <button type="button" class="btn small" data-act="lib" data-day="${d.id}" data-row="${r.id}">المكتبة</button>
+            <button type="button" class="btn ghost ico danger" id="${d.id}-${r.id}-vx" data-act="clear-v" data-day="${d.id}" data-row="${r.id}" aria-label="إزالة الفيديو" ${r.v ? '' : 'hidden'}>${svg.x}</button>
+          </div>
+          <p class="vnote ${vi.cls}" id="${d.id}-${r.id}-vn">${vi.txt}</p>
+        </div>`; }).join('')}</div>
       <div class="dayfoot"><button type="button" class="btn small" data-act="add-row" data-day="${d.id}">+ تمرين</button></div>`;
   return `<section class="day ${d.rest ? 'rest' : ''}" aria-label="${name}">
     <div class="dayhead">
@@ -546,7 +664,7 @@ Leg
       </div>
     </section>
     <section class="card">
-      <div class="head"><h2>أيام التمرين</h2><span class="sub">${S.days.length} يوم</span></div>
+      <div class="head"><h2>أيام التمرين</h2><span class="sub">${S.days.length} يوم</span><button type="button" class="btn small" data-act="autolink-all">اربط الفيديوهات تلقائيًا</button></div>
       <div class="col" id="days">${S.days.map(dayHtml).join('') || '<p class="sub">لسه مفيش أيام. ضيف يوم تمرين أو يوم راحة.</p>'}</div>
       <div class="dayfoot" style="margin-top:12px">
         <button type="button" class="btn" data-act="add-day" ${S.days.length >= 14 ? 'disabled' : ''}>+ يوم تمرين</button>
@@ -592,12 +710,54 @@ $('editor').addEventListener('input', e => {
   else if (t.dataset.opt) S.opts[t.dataset.opt] = t.checked;
   else if (t.dataset.day) {
     const d = findDay(t.dataset.day); if (!d) return;
-    if (t.dataset.row) { const r = d.rows.find(x => x.id === t.dataset.row); if (r) r[t.dataset.k] = t.value; } else d[t.dataset.k] = t.value;
+    if (t.dataset.row) {
+      const r = d.rows.find(x => x.id === t.dataset.row);
+      if (r) {
+        r[t.dataset.k] = t.value;
+        if (t.dataset.k === 'n') openSug(t, d, r);
+        if (t.dataset.k === 'v') { const e = r.lid && LIBBY[r.lid]; if (!e || normUrl(r.v) !== YT + e.v) r.lid = ''; refreshVInfo(d, r); }
+      }
+    } else d[t.dataset.k] = t.value;
   }
   schedule();
 });
+function refreshVInfo(d, r) {
+  const vi = vInfo(r), n = $(`${d.id}-${r.id}-vn`), x = $(`${d.id}-${r.id}-vx`);
+  if (n) { n.innerHTML = vi.txt; n.className = 'vnote ' + vi.cls; }
+  if (x) x.hidden = !r.v.trim();
+}
+/* name suggestions from the library */
+let sug = null;
+function closeSug() { if (sug) { sug.el.remove(); sug.input.setAttribute('aria-expanded', 'false'); sug = null; } }
+function openSug(input, d, r) {
+  closeSug();
+  const items = libSearch(input.value, 6); if (!items.length) return;
+  const el = document.createElement('div'); el.className = 'sug'; el.setAttribute('role', 'listbox');
+  el.innerHTML = items.map((e, i) => `<div class="opt" role="option" aria-selected="false" data-i="${i}"><b>${esc(plainName(e))}</b><span>${esc(e.en)} · ${esc(e.g)}</span></div>`).join('');
+  input.parentElement.appendChild(el); input.setAttribute('aria-expanded', 'true');
+  sug = { input, el, items, idx: -1, d, r };
+}
+function markSug(i) { if (!sug) return; const o = sug.el.querySelectorAll('.opt'); sug.idx = (i + o.length) % o.length; o.forEach((x, k) => x.setAttribute('aria-selected', k === sug.idx)); o[sug.idx].scrollIntoView({ block: 'nearest' }); }
+function applyEntry(d, r, e) { r.n = plainName(e); r.v = YT + e.v; r.lid = e.id; }
+function pickSug(i) {
+  if (!sug) return; const { d, r, items } = sug; closeSug(); applyEntry(d, r, items[i]);
+  touched(); renderEditor(); schedule(); focusId(`${d.id}-${r.id}-r`);
+}
+document.addEventListener('mousedown', e => {
+  const o = e.target.closest('.sug .opt'); if (o && sug) { e.preventDefault(); pickSug(+o.dataset.i); return; }
+  if (sug && !e.target.closest('.nmwrap')) closeSug();
+});
+document.addEventListener('focusin', e => { if (sug && e.target !== sug.input) closeSug(); });
 $('editor').addEventListener('keydown', e => {
-  const t = e.target; if (e.key !== 'Enter' || !t.dataset || !t.dataset.row) return;
+  const t = e.target;
+  if (sug && t === sug.input) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); return markSug(sug.idx + 1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); return markSug(sug.idx - 1); }
+    if (e.key === 'Escape') { e.stopPropagation(); return closeSug(); }
+    if (e.key === 'Enter' && sug.idx >= 0) { e.preventDefault(); return pickSug(sug.idx); }
+    if (e.key === 'Enter') closeSug();
+  }
+  if (e.key !== 'Enter' || !t.dataset || !t.dataset.row || t.dataset.k === 'v') return;
   e.preventDefault(); const d = findDay(t.dataset.day); if (!d) return;
   if (t.dataset.k === 'n') return focusId(`${d.id}-${t.dataset.row}-r`);
   const idx = d.rows.findIndex(r => r.id === t.dataset.row);
@@ -616,10 +776,17 @@ $('editor').addEventListener('click', e => {
     const parsed = parsePlan($('importText').value);
     if (!parsed.length) return setStatus('مفيش أيام اتقرت من النص. اتأكد إنك فاصل بين الأيام بسطر فاضي.', 'err');
     S.days = (a === 'import-add' ? S.days.filter(x => x.rest || x.rows.some(r => r.n.trim())) : []).concat(parsed).slice(0, 14);
-    redraw(); return setStatus('اتضاف ' + parsed.length + ' يوم من النص.', 'ok');
+    const res = autolink(S.days); redraw();
+    return setStatus('اتضاف ' + parsed.length + ' يوم من النص.' + (res.hit ? ` واتربط ${res.hit} تمرين بفيديو من المكتبة، راجعهم.` : ''), 'ok');
+  }
+  if (a === 'autolink-all') {
+    const res = autolink(S.days); redraw();
+    return setStatus(res.hit ? `اتربط ${res.hit} تمرين بفيديو من المكتبة (من ${res.total} بدون فيديو). راجع الروابط قبل التنزيل.` : (res.total ? 'مفيش أسماء مطابقة بثقة للمكتبة. اختار من زرار «المكتبة» عند كل تمرين.' : 'كل التمارين فيها فيديو بالفعل.'), res.hit ? 'ok' : '');
   }
   if (!d) return;
   const i = S.days.indexOf(d);
+  if (a === 'lib') { openLib(d, b); return; }
+  if (a === 'clear-v') { const r = d.rows.find(x => x.id === b.dataset.row); if (r) { r.v = ''; r.lid = ''; } redraw(); return; }
   if (a === 'del-day') S.days.splice(i, 1);
   else if (a === 'up' && i > 0) S.days.splice(i - 1, 0, S.days.splice(i, 1)[0]);
   else if (a === 'down' && i < S.days.length - 1) S.days.splice(i + 1, 0, S.days.splice(i, 1)[0]);
@@ -630,6 +797,33 @@ $('editor').addEventListener('click', e => {
   redraw();
 });
 
+/* ---------- library modal ---------- */
+let lib = { g: 'الكل', q: '', d: null, r: null, opener: null };
+function renderLib() {
+  const base = lib.q.trim() ? libSearch(lib.q, 200) : LIB;
+  const list = base.filter(e => lib.g === 'الكل' || e.g === lib.g);
+  $('libg').innerHTML = GROUPS.map(g => `<button type="button" class="gc" data-g="${g}" aria-pressed="${g === lib.g}">${g}</button>`).join('');
+  $('liblist').innerHTML = list.map(e => `<div class="li"><div class="lt"><b>${esc(plainName(e))}</b><span class="en">${esc(e.en)} · ${esc(e.g)}</span><span class="vt">${esc(e.t)}${e.ch ? ' — ' + esc(e.ch) : ''}</span></div><div class="la"><a class="btn small" href="${YT + e.v}" target="_blank" rel="noopener noreferrer">شاهد</a><button type="button" class="btn small primary" data-pick="${e.id}">اختيار</button></div></div>`).join('') || '<p class="sub" style="padding:14px 2px">مفيش تمرين بالاسم ده في المكتبة. تقدر تلصق رابط حر في خانة «فيديو الشرح».</p>';
+  $('libcount').textContent = list.length + ' تمرين في المكتبة. زرار «شاهد» بيفتح الفيديو في تاب جديد.';
+}
+function openLib(d, opener) {
+  const r = d.rows.find(x => x.id === opener.dataset.row); if (!r) return;
+  lib = { g: 'الكل', q: r.n.trim(), d, r, opener };
+  if (lib.q && !libSearch(lib.q, 1).length) lib.q = '';
+  $('libq').value = lib.q; renderLib(); $('libov').hidden = false; $('libq').focus();
+}
+function closeLib() { $('libov').hidden = true; const o = lib.opener && document.getElementById(lib.opener.id); if (o) o.focus(); else if (lib.r) focusId(`${lib.d.id}-${lib.r.id}-n`); }
+$('libclose').addEventListener('click', closeLib);
+$('libov').addEventListener('mousedown', e => { if (e.target === $('libov')) closeLib(); });
+$('libq').addEventListener('input', e => { lib.q = e.target.value; renderLib(); });
+$('libov').addEventListener('click', e => {
+  const g = e.target.closest('[data-g]'); if (g) { lib.g = g.dataset.g; return renderLib(); }
+  const p = e.target.closest('[data-pick]'); if (!p) return;
+  const en = LIBBY[p.dataset.pick]; if (!en || !lib.r) return;
+  const { d, r } = lib; applyEntry(d, r, en); touched(); $('libov').hidden = true; renderEditor(); schedule(); focusId(`${d.id}-${r.id}-r`);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('libov').hidden) closeLib(); });
+
 /* ---------- PDF export (own writer: one JPEG per page) ---------- */
 async function loadFonts() {
   try {
@@ -639,22 +833,29 @@ async function loadFonts() {
 function toJpeg(canvas) {
   return new Promise((res, rej) => canvas.toBlob(b => b ? b.arrayBuffer().then(ab => res(new Uint8Array(ab))) : rej(new Error('jpeg')), 'image/jpeg', 0.93));
 }
-function buildPdf(jpegs, w, h) {
+function buildPdf(jpegs, w, h, links = []) {
   const enc = new TextEncoder(), parts = [], offs = []; let pos = 0;
   const put = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); pos += b.length; };
-  const n = jpegs.length;
+  const n = jpegs.length, pids = []; let next = 3;
+  jpegs.forEach((_, i) => { pids.push(next); next += 3 + (links[i] ? links[i].length : 0); });
   put('%PDF-1.4\n'); put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
   const obj = (id, body) => { offs[id] = pos; put(id + ' 0 obj\n'); put(body); put('\nendobj\n'); };
+  const num = v => (Math.round(v * 100) / 100).toString();
   obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-  obj(2, `<< /Type /Pages /Count ${n} /Kids [${jpegs.map((_, i) => (3 + i * 3) + ' 0 R').join(' ')}] >>`);
+  obj(2, `<< /Type /Pages /Count ${n} /Kids [${pids.map(p => p + ' 0 R').join(' ')}] >>`);
   jpegs.forEach((j, i) => {
-    const pid = 3 + i * 3, cid = pid + 1, iid = pid + 2, content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
-    obj(pid, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R >>`);
+    const pid = pids[i], cid = pid + 1, iid = pid + 2, L = links[i] || [], content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    const annots = L.length ? ` /Annots [${L.map((_, k) => (pid + 3 + k) + ' 0 R').join(' ')}]` : '';
+    obj(pid, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R${annots} >>`);
     obj(cid, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
     offs[iid] = pos; put(`${iid} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.length} >>\nstream\n`);
     put(j); put('\nendstream\nendobj\n');
+    L.forEach((l, k) => {
+      const uri = String(l.url).replace(/[^\x21-\x7e]/g, '').replace(/[\\()]/g, m => '\\' + m);
+      obj(pid + 3 + k, `<< /Type /Annot /Subtype /Link /Rect [${num(l.x)} ${num(PH - (l.y + l.h))} ${num(l.x + l.w)} ${num(PH - l.y)}] /Border [0 0 0] /F 4 /A << /S /URI /URI (${uri}) >> >>`);
+    });
   });
-  const total = 3 + n * 3, xr = pos;
+  const total = next, xr = pos;
   put(`xref\n0 ${total}\n0000000000 65535 f \n`);
   for (let i = 1; i < total; i++) put(String(offs[i]).padStart(10, '0') + ' 00000 n \n');
   put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`);
@@ -673,21 +874,23 @@ async function exportPdf() {
   try {
     setStatus('بجهّز الصفحات…', '');
     await loadFonts();
-    const sc = 3, w = PW * sc, h = PH * sc, jp = [];
+    const sc = 3, w = PW * sc, h = PH * sc, jp = [], lk = [];
     const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
     for (let i = 0; i < all.length; i++) {
       setStatus(`بجهّز الصفحات… ${i + 1} من ${all.length}`, '');
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
       drawPage(ctx, all[i], S, sc);
+      lk.push(all[i].links || []);
       jp.push(await toJpeg(c));
       await new Promise(r => setTimeout(r, 0));
     }
-    const blob = buildPdf(jp, w, h);
+    const blob = buildPdf(jp, w, h, lk);
     const dl = await (window.claude && window.claude.use ? window.claude.use('downloads') : null);
     if (!dl) { setStatus('التنزيل مش متاح في العرض ده. افتح الصفحة من claude.ai وجرّب تاني.', 'err'); return; }
     const filename = cleanName($('filename').value) + '.pdf';
     await dl.save({ filename, data: blob });
-    setStatus('تم حفظ ' + filename + ' (' + all.length + ' صفحة).', 'ok');
+    const nl = lk.reduce((a, x) => a + x.length, 0);
+    setStatus('تم حفظ ' + filename + ' (' + all.length + ' صفحة' + (nl ? '، ' + nl + ' رابط فيديو' : '') + ').', 'ok');
   } catch (e) {
     if (e && e.code === 'declined') setStatus('اتلغى التنزيل. اضغط تنزيل PDF تاني لما تكون جاهز.', '');
     else setStatus('حصلت مشكلة وإحنا بنجهّز الملف. جرّب تاني.', 'err');
@@ -698,9 +901,10 @@ $('filename').value = S.file || 'workout-plan';
 $('filename').addEventListener('input', () => { S.file = $('filename').value; persist(); });
 
 /* ---------- boot ---------- */
+if (S.sample) autolink(S.days);
 renderEditor(); renderPreview();
 loadFonts().then(renderPreview);
-window.__test = { parsePlan, planPages, drawPage, S: () => S, buildPdf, toJpeg, normReps };
+window.__test = { autolink, autoMatch, libSearch, LIB, normUrl, parsePlan, planPages, drawPage, S: () => S, buildPdf, toJpeg, normReps };
 })();
 </script>
 
